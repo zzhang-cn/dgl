@@ -517,10 +517,10 @@ class CopyReduce(mx.autograd.Function):
             in_ones_nd = zerocopy_to_dgl_ndarray(in_ones)
             degs_nd = zerocopy_to_dgl_ndarray(degs)
             K.copy_reduce(
-                'sum', self.graph, self.target, in_ones_nd, degs_nd, 
+                'sum', self.graph, self.target, in_ones_nd, degs_nd,
                 self.in_map[0], self.out_map[0])
             # reshape
-            degs = degs.reshape((out_data.shape[0],) + (1,) * (out_data.ndim - 1)).clip(1, float('inf')) 
+            degs = degs.reshape((out_data.shape[0],) + (1,) * (out_data.ndim - 1)).clip(1, float('inf'))
             out_data = out_data / degs
         else:
             degs = None

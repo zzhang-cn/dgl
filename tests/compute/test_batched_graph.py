@@ -79,7 +79,10 @@ def test_batch_unbatch1(idtype):
     assert F.allclose(t2.ndata['h'], s3.ndata['h'])
     assert F.allclose(t2.edata['h'], s3.edata['h'])
 
-@unittest.skipIf(dgl.backend.backend_name == "tensorflow", reason="TF doesn't support inplace update")
+@unittest.skipIf(
+    dgl.backend.backend_name == "tensorflow" or dgl.backend.backend_name == "jax",
+    reason="TF and JAX don't support inplace update"
+)
 @parametrize_dtype
 def test_batch_unbatch_frame(idtype):
     """Test module of node/edge frames of batched/unbatched DGLGraphs.
@@ -96,7 +99,7 @@ def test_batch_unbatch_frame(idtype):
     t1.edata['h'] = F.randn((E1, D))
     t2.ndata['h'] = F.randn((N2, D))
     t2.edata['h'] = F.randn((E2, D))
-    
+
     b1 = dgl.batch([t1, t2])
     b2 = dgl.batch([t2])
     b1.ndata['h'][:N1] = F.zeros((N1, D))

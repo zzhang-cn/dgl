@@ -32,5 +32,6 @@ if LOAD_ALL.lower() != "false":
     from .mxnet import *
     from .pytorch import *
     from .tensorflow import *
+    from .jax import *
 else:
     _load_backend(backend_name)

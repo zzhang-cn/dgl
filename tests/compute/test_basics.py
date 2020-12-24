@@ -84,6 +84,13 @@ def generate_graph(idtype, grad=False):
     g.edata['w'] = ecol
     g.set_n_initializer(dgl.init.zero_initializer)
     g.set_e_initializer(dgl.init.zero_initializer)
+
+    if dgl.backend.backend_name == "jax":
+        import jax
+        g = g.to(
+            jax.devices()[0],
+        )
+
     return g
 
 def test_compatible():
@@ -159,6 +166,7 @@ def test_batch_setter_getter(idtype):
     v = F.tensor([6, 9, 7], g.idtype)
     assert _pfc(g.edges[u, v].data['l']) == [1.0, 1.0, 0.0]
 
+@unittest.skipIf(dgl.backend.backend_name == "jax", reason="no tensor grad in jax")
 @parametrize_dtype
 def test_batch_setter_autograd(idtype):
     g = generate_graph(idtype, grad=True)
@@ -619,6 +627,9 @@ def test_send_multigraph(idtype):
     def _message_b(edges):
         return {'a': edges.data['a'] * 3}
     def _reduce(nodes):
+        print(F.max)
+        print(nodes.mailbox['a'])
+        print(F.max(nodes.mailbox['a'], 1))
         return {'a': F.max(nodes.mailbox['a'], 1)}
 
     def answer(*args):
@@ -634,7 +645,7 @@ def test_send_multigraph(idtype):
     g.send_and_recv([0, 2, 3], message_func=_message_a, reduce_func=_reduce)
     new_repr = g.ndata['a']
     assert F.allclose(new_repr[1], answer(old_repr[0], old_repr[2], old_repr[3]))
-    assert F.allclose(new_repr[[0, 2]], F.zeros((2, 5)))
+    assert F.allclose(new_repr[F.tensor([0, 2])], F.zeros((2, 5)))
 
 @parametrize_dtype
 def test_issue_1088(idtype):

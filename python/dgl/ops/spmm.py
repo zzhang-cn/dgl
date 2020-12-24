@@ -62,6 +62,7 @@ def gspmm(g, op, reduce_op, lhs_data, rhs_data):
     ret = gspmm_internal(g._graph, op,
                          'sum' if reduce_op == 'mean' else reduce_op,
                          lhs_data, rhs_data)
+
     # Replace infinity with zero for isolated nodes when reducer is min/max
     if reduce_op in ['min', 'max']:
         ret = F.replace_inf_with_zero(ret)

@@ -45,8 +45,8 @@ class ObjectBase(_ObjectBase):
             names.append(py_str(plist[i]))
         return names
 
-    def __hash__(self):
-        return _api_internal._raw_ptr(self)
+    # def __hash__(self):
+    #     return _api_internal._raw_ptr(self)
 
     def __eq__(self, other):
         return self.same_as(other)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. /opt/conda/etc/profile.d/conda.sh
+#. /opt/conda/etc/profile.d/conda.sh
 
 function fail {
     echo FAIL: $@

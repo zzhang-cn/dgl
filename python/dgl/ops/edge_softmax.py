@@ -106,5 +106,12 @@ def edge_softmax(graph, logits, eids=ALL, norm_by='dst'):
     """
     if not is_all(eids):
         eids = astype(eids, graph.idtype)
-    return edge_softmax_internal(graph._graph, logits,
+    ret = edge_softmax_internal(graph._graph, logits,
                                  eids=eids, norm_by=norm_by)
+    # TODO: figure out the weird behavior
+    # that if no such statemenet is used, for JAX, it returns zeros
+    # when such tensor is used for computation
+    from .. import backend as F
+    if F.backend_name == "jax":
+        ret = F.tensor(ret)
+    return ret

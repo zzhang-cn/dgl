@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite errors="2" failures="0" hostname="lilac" name="pytest" skipped="0" tests="2" time="12.166" timestamp="2020-12-14T15:48:55.807963"><testcase classname="" name="tests.compute.test_pickle" time="0.000"><error message="collection failure">tests/compute/test_pickle.py:135: in &lt;module&gt;
+    @pytest.mark.parametrize('g', get_cases(exclude=['dglgraph', 'two_hetero_batch']))
+tests/test_utils/graph_cases.py:30: in get_cases
+    return [fn() for fn in cases]
+tests/test_utils/graph_cases.py:30: in &lt;listcomp&gt;
+    return [fn() for fn in cases]
+tests/test_utils/graph_cases.py:74: in batched_graph0
+    g1 = dgl.add_self_loop(dgl.graph(([0, 1, 2], [1, 2, 3])))
+/data/chodera/wangyq/jax-dgl/dgl/python/dgl/transform.py:1325: in add_self_loop
+    nodes = g.nodes(etype[0])
+/data/chodera/wangyq/jax-dgl/dgl/python/dgl/view.py:44: in __call__
+    dtype=self._graph.idtype, ctx=self._graph.device)
+E   TypeError: arange() got an unexpected keyword argument 'ctx'</error></testcase><testcase classname="" name="tests.compute.test_readout" time="0.000"><error message="collection failure">tests/compute/test_readout.py:25: in &lt;module&gt;
+    @pytest.mark.parametrize('g', get_cases(['homo'], exclude=['dglgraph']))
+tests/test_utils/graph_cases.py:30: in get_cases
+    return [fn() for fn in cases]
+tests/test_utils/graph_cases.py:30: in &lt;listcomp&gt;
+    return [fn() for fn in cases]
+tests/test_utils/graph_cases.py:74: in batched_graph0
+    g1 = dgl.add_self_loop(dgl.graph(([0, 1, 2], [1, 2, 3])))
+/data/chodera/wangyq/jax-dgl/dgl/python/dgl/transform.py:1325: in add_self_loop
+    nodes = g.nodes(etype[0])
+/data/chodera/wangyq/jax-dgl/dgl/python/dgl/view.py:44: in __call__
+    dtype=self._graph.idtype, ctx=self._graph.device)
+E   TypeError: arange() got an unexpected keyword argument 'ctx'</error></testcase></testsuite></testsuites>

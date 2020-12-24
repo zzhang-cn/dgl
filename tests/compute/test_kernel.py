@@ -126,10 +126,12 @@ def test_copy_src_reduce():
         if not F.allclose(r1, r2):
             _print_error(r1, r2)
         assert F.allclose(r1, r2)
-        if not F.allclose(n_grad1, n_grad2):
-            print('node grad')
-            _print_error(n_grad1, n_grad2)
-        assert(F.allclose(n_grad1, n_grad2))
+
+        if F.backend_name != "jax":
+            if not F.allclose(n_grad1, n_grad2):
+                print('node grad')
+                _print_error(n_grad1, n_grad2)
+            assert(F.allclose(n_grad1, n_grad2))
 
     _test('sum', False)
     _test('max', False)
@@ -189,10 +191,12 @@ def test_copy_edge_reduce():
         if not F.allclose(r1, r2):
             _print_error(r1, r2)
         assert F.allclose(r1, r2)
-        if not F.allclose(e_grad1, e_grad2):
-            print('edge gradient')
-            _print_error(e_grad1, e_grad2)
-        assert(F.allclose(e_grad1, e_grad2))
+
+        if F.backend_name != "jax":
+            if not F.allclose(e_grad1, e_grad2):
+                print('edge gradient')
+                _print_error(e_grad1, e_grad2)
+            assert(F.allclose(e_grad1, e_grad2))
 
     _test('sum', False)
     _test('max', False)
@@ -324,15 +328,16 @@ def test_all_binary_builtins():
             _print_error(r1, r2)
         assert F.allclose(r1, r2, rtol, atol)
 
-        if not F.allclose(lhs_grad_1, lhs_grad_2, rtol, atol):
-            print("left grad")
-            _print_error(lhs_grad_1, lhs_grad_2)
-        assert(F.allclose(lhs_grad_1, lhs_grad_2, rtol, atol))
+        if F.backend_name != "jax":
+            if not F.allclose(lhs_grad_1, lhs_grad_2, rtol, atol):
+                print("left grad")
+                _print_error(lhs_grad_1, lhs_grad_2)
+            assert(F.allclose(lhs_grad_1, lhs_grad_2, rtol, atol))
 
-        if not F.allclose(rhs_grad_1, rhs_grad_2, rtol, atol):
-            print("right grad")
-            _print_error(rhs_grad_1, rhs_grad_2)
-        assert(F.allclose(rhs_grad_1, rhs_grad_2, rtol, atol))
+            if not F.allclose(rhs_grad_1, rhs_grad_2, rtol, atol):
+                print("right grad")
+                _print_error(rhs_grad_1, rhs_grad_2)
+            assert(F.allclose(rhs_grad_1, rhs_grad_2, rtol, atol))
 
     g = dgl.DGLGraph()
     g.add_nodes(20)

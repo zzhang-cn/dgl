@@ -61,7 +61,7 @@ def get_preferred_backend():
             config_dict = json.load(config_file)
             backend_name = config_dict.get('backend', '').lower()
 
-    if (backend_name in ['tensorflow', 'mxnet', 'pytorch']):
+    if (backend_name in ['jax', 'tensorflow', 'mxnet', 'pytorch']):
         return backend_name
     else:
         print("DGL backend not selected or invalid.  "

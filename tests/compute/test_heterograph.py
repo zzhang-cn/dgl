@@ -1495,6 +1495,7 @@ def test_updates(idtype):
         del g.nodes['game'].data['y']
 
 
+@unittest.skipIf(F.backend_name == "jax", reason="Jax backward doesn't work like this")
 @parametrize_dtype
 def test_backward(idtype):
     g = create_test_heterograph(idtype)

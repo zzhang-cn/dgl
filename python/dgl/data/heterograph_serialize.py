@@ -14,6 +14,12 @@ def tensor_dict_to_ndarray_dict(tensor_dict):
     """Convert dict[str, tensor] to StrMap[NDArray]"""
     ndarray_dict = {}
     for key, value in tensor_dict.items():
+        if F.backend_name == "jax":
+            from jax import numpy as jnp
+            if value.dtype == jnp.bool_:
+                value = (value + 0).astype(jnp.int8)
+
+        value = value + 0
         ndarray_dict[key] = F.zerocopy_to_dgl_ndarray(value)
     return convert_to_strmap(ndarray_dict)
 
@@ -53,9 +59,9 @@ class HeteroGraphData(ObjectBase):
         for ntid, ntensor in enumerate(ntensor_list):
             ndict = {ntensor[i]: F.zerocopy_from_dgl_ndarray(ntensor[i+1]) for i in range(0, len(ntensor), 2)}
             nframes.append(Frame(ndict, num_rows=gidx.number_of_nodes(ntid)))
-        
+
         for etid, etensor in enumerate(etensor_list):
             edict = {etensor[i]: F.zerocopy_from_dgl_ndarray(etensor[i+1]) for i in range(0, len(etensor), 2)}
             eframes.append(Frame(edict, num_rows=gidx.number_of_edges(etid)))
-        
+
         return DGLHeteroGraph(gidx, ntype_names, etype_names, nframes, eframes)

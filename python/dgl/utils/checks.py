@@ -27,6 +27,20 @@ def prepare_tensor(g, data, name):
     Tensor
         Data in tensor object.
     """
+    if F.backend_name == "jax":
+        import jax
+        from jax import numpy as jnp
+        if isinstance(data, jnp.ndarray) and hasattr(data, 'device_buffer'):
+            if data.device_buffer.device() != g.device:
+
+                data = jax.device_put(
+                    data,
+                    g.device
+                ).astype(
+                    data.dtype
+                )
+
+
     if F.is_tensor(data):
         if F.dtype(data) != g.idtype or F.context(data) != g.device:
             raise DGLError('Expect argument "{}" to have data type {} and device '

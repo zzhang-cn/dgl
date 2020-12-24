@@ -27,6 +27,11 @@ _full = full
 _full_1d = full_1d
 _softmax = softmax
 _default_context_str = os.getenv('DGLTESTDEV', 'cpu')
+
+if backend_name == "jax":
+    import jax
+    _default_context_str = jax.devices()[0].platform
+
 _context_dict = {
         'cpu': cpu(),
         'gpu': cuda(),

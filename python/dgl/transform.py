@@ -445,7 +445,7 @@ def add_reverse_edges(g, readonly=None, copy_ndata=True,
         edge_frames = utils.extract_edge_subframes(g, eids)
         utils.set_new_frames(new_g, edge_frames=edge_frames)
 
-    return new_g
+    return new_g.to(g.device)
 
 def line_graph(g, backtracking=True, shared=False):
     """Return the line graph of this graph.

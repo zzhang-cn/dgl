@@ -235,7 +235,7 @@ def context(input):
 
 def device_type(ctx):
     """Return a str representing device type.
-    
+
     Parameters
     ----------
     ctx : Device context object.
@@ -252,7 +252,7 @@ def device_id(ctx):
 
     For CPU, the index does not matter. For GPU, the index means which GPU
     device on the machine.
-    
+
     Parameters
     ----------
     ctx : Device context object.

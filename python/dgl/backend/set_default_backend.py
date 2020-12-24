@@ -17,6 +17,6 @@ def set_default_backend(backend_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("backend", nargs=1, type=str, choices=[
-                        'pytorch', 'tensorflow', 'mxnet'], help="Set default backend")
+                        'jax', 'pytorch', 'tensorflow', 'mxnet'], help="Set default backend")
     args = parser.parse_args()
     set_default_backend(args.backend[0])

@@ -512,6 +512,7 @@ def test_partition_with_halo():
 
 @unittest.skipIf(os.name == 'nt', reason='Do not support windows yet')
 @unittest.skipIf(F._default_context_str == 'gpu', reason="METIS doesn't support GPU")
+@unittest.skipIf(F.backend_name == 'jax', reason="Introduces segmentation error.")
 def test_metis_partition():
     # TODO(zhengda) Metis fails to partition a small graph.
     g = create_large_graph(1000)

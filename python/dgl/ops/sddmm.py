@@ -57,8 +57,9 @@ def gsddmm(g, op, lhs_data, rhs_data, lhs_target='u', rhs_target='v'):
             new_rhs_shape = (rhs_shape[0],) + (1,) * rhs_pad_ndims + rhs_shape[1:]
             lhs_data = F.reshape(lhs_data, new_lhs_shape)
             rhs_data = F.reshape(rhs_data, new_rhs_shape)
-    return gsddmm_internal(
+    ret = gsddmm_internal(
         g._graph, op, lhs_data, rhs_data, lhs_target, rhs_target)
+    return ret
 
 
 def _gen_sddmm_func(lhs_target, rhs_target, binary_op):

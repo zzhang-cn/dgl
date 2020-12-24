@@ -6,7 +6,7 @@ import random
 import pytest
 import networkx as nx
 import backend as F
-import numpy as np 
+import numpy as np
 
 random.seed(42)
 np.random.seed(42)
@@ -69,7 +69,7 @@ udf_reduce = {
 }
 
 graphs = [
-#    dgl.rand_graph(30, 0),
+    # dgl.rand_graph(30, 0),
     dgl.rand_graph(30, 100),
     dgl.rand_bipartite('_U', '_E', '_V', 30, 40, 300)
 ]
@@ -131,22 +131,23 @@ def test_spmm(idtype, g, shp, msg, reducer):
             assert F.allclose(v, v1)
             print('forward passed')
 
-            F.backward(F.reduce_sum(v1))
-            if msg != 'copy_rhs':
-                if reducer in ['min', 'max']: # there might be some numerical errors
-                    rate = F.reduce_sum(F.abs(F.grad(g.srcdata['x']) - grad_u)) /\
-                           F.reduce_sum(F.abs(grad_u))
-                    assert F.as_scalar(rate) < 1e-2, rate
-                else:
-                    assert F.allclose(F.grad(g.srcdata['x']), grad_u)
-            if msg != 'copy_lhs':
-                if reducer in ['min', 'max']:
-                    rate = F.reduce_sum(F.abs(F.grad(g.edata['w']) - grad_e)) /\
-                           F.reduce_sum(F.abs(grad_e))
-                    assert F.as_scalar(rate) < 1e-2, rate
-                else:
-                    assert F.allclose(F.grad(g.edata['w']), grad_e)
-            print('backward passed')
+            if F.backend_name != "jax":
+                F.backward(F.reduce_sum(v1))
+                if msg != 'copy_rhs':
+                    if reducer in ['min', 'max']: # there might be some numerical errors
+                        rate = F.reduce_sum(F.abs(F.grad(g.srcdata['x']) - grad_u)) /\
+                               F.reduce_sum(F.abs(grad_u))
+                        assert F.as_scalar(rate) < 1e-2, rate
+                    else:
+                        assert F.allclose(F.grad(g.srcdata['x']), grad_u)
+                if msg != 'copy_lhs':
+                    if reducer in ['min', 'max']:
+                        rate = F.reduce_sum(F.abs(F.grad(g.edata['w']) - grad_e)) /\
+                               F.reduce_sum(F.abs(grad_e))
+                        assert F.as_scalar(rate) < 1e-2, rate
+                    else:
+                        assert F.allclose(F.grad(g.edata['w']), grad_e)
+                print('backward passed')
 
     g.srcdata.pop('x')
     g.edata.pop('w')
@@ -213,12 +214,13 @@ def test_sddmm(g, shp, lhs_target, rhs_target, msg, idtype):
             assert F.allclose(e, e1)
             print('forward passed')
 
-            F.backward(F.reduce_sum(e1))
-            if msg != 'copy_rhs':
-                assert F.allclose(F.grad(lhs_frame['x']), grad_lhs)
-            if msg != 'copy_lhs':
-                assert F.allclose(F.grad(rhs_frame['y']), grad_rhs)
-            print('backward passed')
+            if F.backend_name != "jax":
+                F.backward(F.reduce_sum(e1))
+                if msg != 'copy_rhs':
+                    assert F.allclose(F.grad(lhs_frame['x']), grad_lhs)
+                if msg != 'copy_lhs':
+                    assert F.allclose(F.grad(rhs_frame['y']), grad_rhs)
+                print('backward passed')
 
     lhs_frame.pop('x')
     rhs_frame.pop('y')
@@ -251,9 +253,10 @@ def test_edge_softmax(g, norm_by, shp, idtype):
         assert F.allclose(score1, score2)
         print('forward passed')
 
-        F.backward(F.reduce_sum(score2))
-        assert F.allclose(F.grad(e2), grad_edata)
-        print('backward passed')
+        if F.backend_name != "jax":
+            F.backward(F.reduce_sum(score2))
+            assert F.allclose(F.grad(e2), grad_edata)
+            print('backward passed')
 
 @pytest.mark.parametrize('reducer', ['sum', 'max', 'min', 'mean'])
 def test_segment_reduce(reducer):
@@ -279,9 +282,10 @@ def test_segment_reduce(reducer):
         assert F.allclose(rst1, rst2)
         print('forward passed')
 
-        grad2 = F.grad(v2)
-        assert F.allclose(grad1, grad2)
-        print('backward passed')
+        if F.backend_name != "jax":
+            grad2 = F.grad(v2)
+            assert F.allclose(grad1, grad2)
+            print('backward passed')
 
 
 if __name__ == '__main__':

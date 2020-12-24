@@ -253,29 +253,3 @@ def edge_softmax(gidx, logits, eids=ALL, norm_by='dst'):
     def _lambda(logits):
         return edge_softmax_real(gidx, logits, eids, norm_by)
     return _lambda(logits)
-
-
-def segment_reduce_real(op, x, offsets):
-    y, arg = _segment_reduce(op, x, offsets)
-
-    def segment_reduce_backward(dy):
-        m = x.shape[0]
-        if op == 'sum':
-            offsets_np = asnumpy(offsets[1:-1])
-            indices_np = np.zeros((m,), dtype=offsets_np.dtype)
-            np.add.at(indices_np, offsets_np, np.ones_like(offsets_np))
-            indices_np = np.cumsum(indices_np, -1)
-            indices = zerocopy_from_numpy(indices_np)
-            dx = tf.gather(dy, indices)
-        else:
-            dx = _bwd_segment_cmp(dy, arg, m)
-        return dx
-
-    return y, segment_reduce_backward
-
-
-def segment_reduce(op, x, offsets):
-    @tf.custom_gradient
-    def _lambda(x):
-        return segment_reduce_real(op, x, offsets)
-    return _lambda(x)

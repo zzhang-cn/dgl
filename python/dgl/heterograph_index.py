@@ -32,6 +32,10 @@ class HeteroGraphIndex(ObjectBase):
         self._pk_state = _CAPI_DGLHeteroPickle(self)
         return self._pk_state
 
+    def __hash__(self):
+        adj = self.adjacency_matrix(0, True, F.cpu())
+        return hash(adj)
+
     def __setstate__(self, state):
         self._cache = {}
 
