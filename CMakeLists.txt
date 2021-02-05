@@ -136,8 +136,6 @@ file(GLOB DGL_SRC
   src/array/cpu/*.cc
   src/random/*.cc
   src/random/cpu/*.cc
-  src/kernel/*.cc
-  src/kernel/cpu/*.cc
   src/runtime/*.cc
   src/geometry/*.cc
   src/geometry/cpu/*.cc
