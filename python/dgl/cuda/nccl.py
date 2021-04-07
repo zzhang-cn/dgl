@@ -1,5 +1,16 @@
 """API creating NCCL communicators."""
 
+class UniqueId(object):
+    """ Class for allowing python code to create and communicate NCCL Unique
+        IDs, needed for creating communicators.
+    """
+    def __init__(self, id_str=None):
+        """ Create an object reference the current NCCL unique id.
+        """
+
+    def __str__(self):
+        return "UniqueId"
+
 
 class Communicator(object):
     """ High-level wrapper for NCCL communication.
@@ -16,7 +27,6 @@ class Communicator(object):
             unique_id : NCCLUniqueId
                 The unique id of the root process (rank=0).
         """
-        pass
 
     def sparse_all_to_all_push(self, idx, value, mode):
         """ Perform an all-to-all-v operation, where by all processors send out
@@ -83,4 +93,3 @@ class Communicator(object):
                 The number of processes in this communicator.
         """
         raise NotImplementedError
-
