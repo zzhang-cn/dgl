@@ -60,6 +60,8 @@ class RelGraphEmbedLayer(nn.Module):
     ----------
     dev_id : int
         Device to run the layer.
+    out_dev_id : int
+        Device to output to.
     num_nodes : int
         Number of nodes.
     node_tides : tensor
@@ -76,6 +78,7 @@ class RelGraphEmbedLayer(nn.Module):
     """
     def __init__(self,
                  dev_id,
+                 out_dev_id,
                  num_nodes,
                  node_tids,
                  num_of_ntype,
@@ -84,6 +87,7 @@ class RelGraphEmbedLayer(nn.Module):
                  dgl_sparse=False):
         super(RelGraphEmbedLayer, self).__init__()
         self.dev_id = th.device(dev_id if dev_id >= 0 else 'cpu')
+        self.out_dev_id = th.device(out_dev_id if out_dev_id >= 0 else 'cpu')
         self.embed_size = embed_size
         self.num_nodes = num_nodes
         self.dgl_sparse = dgl_sparse
@@ -97,14 +101,15 @@ class RelGraphEmbedLayer(nn.Module):
             if isinstance(input_size[ntype], int):
                 if dgl_sparse:
                     self.node_embeds[str(ntype)] = dgl.nn.NodeEmbedding(input_size[ntype], embed_size, name=str(ntype),
-                        init_func=initializer)
+                        init_func=initializer, device=self.dev_id)
                 else:
                     sparse_emb = th.nn.Embedding(input_size[ntype], embed_size, sparse=True)
+                    sparse_emb.cuda(self.dev_id)
                     nn.init.uniform_(sparse_emb.weight, -1.0, 1.0)
                     self.node_embeds[str(ntype)] = sparse_emb
             else:
                 input_emb_size = input_size[ntype].shape[1]
-                embed = nn.Parameter(th.Tensor(input_emb_size, self.embed_size))
+                embed = nn.Parameter(th.Tensor(input_emb_size, self.embed_size, device=self.dev_id))
                 nn.init.xavier_uniform_(embed)
                 self.embeds[str(ntype)] = embed
 
@@ -136,16 +141,24 @@ class RelGraphEmbedLayer(nn.Module):
         tensor
             embeddings as the input of the next layer
         """
-        tsd_ids = node_ids.to(self.dev_id)
-        embeds = th.empty(node_ids.shape[0], self.embed_size, device=self.dev_id)
+        embeds = th.empty(node_ids.shape[0], self.embed_size, device=self.out_dev_id)
+
+        # transfer input to the correct device 
+        type_ids = type_ids.to(self.dev_id)
+        node_tids = node_tids.to(self.dev_id)
+
+        # build locs first
+        locs = [None for i in range(self.num_of_ntype)]
         for ntype in range(self.num_of_ntype):
-            loc = node_tids == ntype
+            locs[ntype] = (node_tids == ntype).nonzero().squeeze()
+        for ntype in range(self.num_of_ntype):
+            loc = locs[ntype]
             if isinstance(features[ntype], int):
                 if self.dgl_sparse:
-                    embeds[loc] = self.node_embeds[str(ntype)](type_ids[loc], self.dev_id)
+                    embeds[loc] = self.node_embeds[str(ntype)](type_ids[loc], self.out_dev_id)
                 else:
-                    embeds[loc] = self.node_embeds[str(ntype)](type_ids[loc]).to(self.dev_id)
+                    embeds[loc] = self.node_embeds[str(ntype)](type_ids[loc]).to(self.out_dev_id)
             else:
-                embeds[loc] = features[ntype][type_ids[loc]].to(self.dev_id) @ self.embeds[str(ntype)].to(self.dev_id)
+                embeds[loc] = features[ntype][type_ids[loc]].to(self.out_dev_id) @ self.embeds[str(ntype)].to(self.out_dev_id)
 
         return embeds
