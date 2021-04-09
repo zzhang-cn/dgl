@@ -30,14 +30,20 @@ class Communicator(object):
 
     def sparse_all_to_all_push(self, idx, value, mode):
         """ Perform an all-to-all-v operation, where by all processors send out
-            a set of indices and corresponding values.
+            a set of indices and corresponding values. The end result, is after
+            this operation, all processors will have the indices and values
+            assigned to them according to the partitioning `mode`.
 
             Parameters
             ----------
             idx : IdArray
-                The 1D set of indices to send to other processors.
+                The 1D set of indices to possibly send to other processors.
+                Indicies corresponding to nodes assigned to this processor,
+                will be kept, where as indices corresponding to nodes assigned
+                to other processors will be sent.
             value : NDArray
-                The multi-dimension set of values to send to other processors.
+                The multi-dimension set of values to send to other processors,
+                based on the corresponding entries of `idx`.
                 The 0th dimension must match that of `idx`.
             mode : int
                 The method for assigning indices to processors.
