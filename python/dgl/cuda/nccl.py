@@ -54,7 +54,7 @@ class Communicator(object):
 
     def sparse_all_to_all_pull(self, req_idx, value, mode):
         """ Perform an all-to-all-v operation, where by all processors request
-            the values corresponding to ther set of indices.
+            the values corresponding to their set of indices.
 
             Parameters
             ----------
