@@ -1,0 +1,48 @@
+pipeline{
+    triggers {
+        issueCommentTrigger('.*')
+    }
+    agent{
+        label "linux-c52x-node"
+    }
+    stages{
+        stage("A"){
+            steps{
+                sh 'env'
+            script {
+               def triggerCause = currentBuild.getBuildCauses()
+                echo("BUILD CAUSE: ${triggerCause.toString()}")
+                if (triggerCause) {
+                    echo("Build was started by ${triggerCause.userLogin}, who wrote: " +
+                        "\"${triggerCause.comment}\", which matches the " +
+                        "\"${triggerCause.triggerPattern}\" trigger pattern.")
+                } else {
+                    echo('Build was not started by a trigger')
+                }
+            }
+            }
+            post{
+                always{
+                    echo "========always========"
+                }
+                success{
+                    echo "========A executed successfully========"
+                }
+                failure{
+                    echo "========A execution failed========"
+                }
+            }
+        }
+    }
+    post{
+        always{
+            echo "========always========"
+        }
+        success{
+            echo "========pipeline executed successfully ========"
+        }
+        failure{
+            echo "========pipeline execution failed========"
+        }
+    }
+}

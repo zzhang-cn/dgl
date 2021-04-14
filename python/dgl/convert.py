@@ -159,7 +159,6 @@ def graph(data,
         urange, vrange = num_nodes, num_nodes
 
     g = create_from_edges(u, v, '_N', '_E', '_N', urange, vrange, validate=False)
-
     return g.to(device)
 
 def bipartite(data,

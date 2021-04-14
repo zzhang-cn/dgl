@@ -212,7 +212,6 @@ endif(USE_TVM)
 if (LIBCXX_ENABLE_PARALLEL_ALGORITHMS)
   add_definitions(-DPARALLEL_ALGORITHMS)
 endif(LIBCXX_ENABLE_PARALLEL_ALGORITHMS)
-
 target_link_libraries(dgl ${DGL_LINKER_LIBS} ${DGL_RUNTIME_LINKER_LIBS})
 if(MSVC)
   add_custom_command(
@@ -255,6 +254,8 @@ if(BUILD_TORCH)
   add_dependencies(dgl tensoradapter_pytorch)
 endif(BUILD_TORCH)
 
+target_compile_definitions(dgl PRIVATE -D_GLIBCXX_USE_CXX11_ABI=0)
+target_compile_definitions(dmlc PRIVATE -D_GLIBCXX_USE_CXX11_ABI=0)
 # Installation rules
 install(TARGETS dgl DESTINATION lib${LIB_SUFFIX})
 
