@@ -71,7 +71,7 @@ def get_local_machine_id(server_namebook):
             break
     return res
 
-def get_local_usable_addr():
+def get_local_usable_addr(probe_addr):
     """Get local usable IP and port
 
     Returns
@@ -81,8 +81,8 @@ def get_local_usable_addr():
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # doesn't even have to be reachable
-        sock.connect(('10.255.255.255', 1))
+        # should get the address on the same subnet as probe_addr's
+        sock.connect((probe_addr, 1))
         ip_addr = sock.getsockname()[0]
     except ValueError:
         ip_addr = '127.0.0.1'
@@ -159,7 +159,7 @@ def connect_to_server(ip_config, num_servers, max_queue_size=MAX_QUEUE_SIZE, net
         rpc.add_receiver_addr(server_ip, server_port, server_id)
     rpc.sender_connect()
     # Get local usable IP address and port
-    ip_addr = get_local_usable_addr()
+    ip_addr = get_local_usable_addr(server_ip)
     client_ip, client_port = ip_addr.split(':')
     # Register client on server
     register_req = rpc.ClientRegisterRequest(ip_addr)

@@ -604,12 +604,17 @@ HeteroGraphPtr CreateHeteroGraph(
  * \param num_dst Number of nodes in the destination type.
  * \param row Src node ids of the edges.
  * \param col Dst node ids of the edges.
+ * \param row_sorted Whether the `row` array is in sorted ascending order.
+ * \param col_sorted When `row_sorted` is true, whether the columns within each
+ * row are also sorted. When `row_sorted` is false, this flag must also be
+ * false.
  * \param formats Sparse formats used for storing this graph.
  * \return A heterograph pointer.
  */
 HeteroGraphPtr CreateFromCOO(
     int64_t num_vtypes, int64_t num_src, int64_t num_dst,
-    IdArray row, IdArray col, dgl_format_code_t formats = ALL_CODE);
+    IdArray row, IdArray col, bool row_sorted = false, bool col_sorted = false,
+    dgl_format_code_t formats = ALL_CODE);
 
 /*!
  * \brief Create a heterograph from COO input.

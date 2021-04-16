@@ -151,11 +151,6 @@ def main():
     udf_command = str(udf_command[0])
     if 'python' not in udf_command:
         raise RuntimeError("DGL launching script can only support Python executable file.")
-    if sys.version_info.major and sys.version_info.minor >= 8:
-        if args.num_samplers > 0:
-            print('WARNING! DGL does not support multiple sampler processes in Python>=3.8. '
-                  + 'Set the number of sampler processes to 0.')
-            args.num_samplers = 0
     submit_jobs(args, udf_command)
 
 def signal_handler(signal, frame):

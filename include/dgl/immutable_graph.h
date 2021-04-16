@@ -267,7 +267,8 @@ class CSR : public GraphInterface {
 class COO : public GraphInterface {
  public:
   // Create a coo graph that shares the given src and dst
-  COO(int64_t num_vertices, IdArray src, IdArray dst);
+  COO(int64_t num_vertices, IdArray src, IdArray dst,
+      bool row_sorted = false, bool col_sorted = false);
 
   // TODO(da): add constructor for creating COO from shared memory
 
@@ -891,7 +892,8 @@ class ImmutableGraph: public GraphInterface {
 
   /*! \brief Create an immutable graph from COO. */
   static ImmutableGraphPtr CreateFromCOO(
-      int64_t num_vertices, IdArray src, IdArray dst);
+      int64_t num_vertices, IdArray src, IdArray dst,
+      bool row_osrted = false, bool col_sorted = false);
 
   /*!
    * \brief Convert the given graph to an immutable graph.

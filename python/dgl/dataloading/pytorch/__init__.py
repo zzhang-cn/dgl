@@ -1,9 +1,68 @@
 """DGL PyTorch DataLoaders"""
 import inspect
+import torch as th
 from torch.utils.data import DataLoader
 from ..dataloader import NodeCollator, EdgeCollator, GraphCollator
 from ...distributed import DistGraph
 from ...distributed import DistDataLoader
+from ...ndarray import NDArray as DGLNDArray
+from ... import backend as F
+
+class _ScalarDataBatcherIter:
+    def __init__(self, dataset, batch_size, drop_last):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.index = 0
+        self.drop_last = drop_last
+
+    def __next__(self):
+        num_items = self.dataset.shape[0]
+        if self.index >= num_items:
+            raise StopIteration
+        end_idx = self.index + self.batch_size
+        if end_idx > num_items:
+            if self.drop_last:
+                raise StopIteration
+            end_idx = num_items
+        batch = self.dataset[self.index:end_idx]
+        self.index += self.batch_size
+
+        return batch
+
+class _ScalarDataBatcher(th.utils.data.IterableDataset):
+    """Custom Dataset wrapper to return mini-batches as tensors, rather than as
+    lists. When the dataset is on the GPU, this significantly reduces
+    the overhead. For the case of a batch size of 1024, instead of giving a
+    list of 1024 tensors to the collator, a single tensor of 1024 dimensions
+    is passed in.
+    """
+    def __init__(self, dataset, shuffle=False, batch_size=1,
+                 drop_last=False):
+        super(_ScalarDataBatcher).__init__()
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+
+    def __iter__(self):
+        worker_info = th.utils.data.get_worker_info()
+        dataset = self.dataset
+        if worker_info:
+            # worker gets only a fraction of the dataset
+            chunk_size = dataset.shape[0] // worker_info.num_workers
+            left_over = dataset.shape[0] % worker_info.num_workers
+            start = (chunk_size*worker_info.id) + min(left_over, worker_info.id)
+            end = start + chunk_size + (worker_info.id < left_over)
+            assert worker_info.id < worker_info.num_workers-1 or \
+                end == dataset.shape[0]
+            dataset = dataset[start:end]
+
+        if self.shuffle:
+            # permute the dataset
+            perm = th.randperm(dataset.shape[0], device=dataset.device)
+            dataset = dataset[perm]
+
+        return _ScalarDataBatcherIter(dataset, self.batch_size, self.drop_last)
 
 def _remove_kwargs_dist(kwargs):
     if 'num_workers' in kwargs:
@@ -242,9 +301,40 @@ class NodeDataLoader:
             self.is_distributed = True
         else:
             self.collator = _NodeCollator(g, nids, block_sampler, **collator_kwargs)
-            self.dataloader = DataLoader(self.collator.dataset,
-                                         collate_fn=self.collator.collate,
-                                         **dataloader_kwargs)
+            dataset = self.collator.dataset
+
+            if th.device(device) != th.device('cpu'):
+                # Only use the '_ScalarDataBatcher' when for the GPU, as it
+                # doens't seem to have a performance benefit on the CPU.
+                assert 'num_workers' not in dataloader_kwargs or \
+                    dataloader_kwargs['num_workers'] == 0, \
+                    'When performing dataloading from the GPU, num_workers ' \
+                    'must be zero.'
+
+                batch_size = dataloader_kwargs.get('batch_size', 0)
+
+                if batch_size > 1:
+                    if isinstance(dataset, DGLNDArray):
+                        # the dataset needs to be a torch tensor for the
+                        # _ScalarDataBatcher
+                        dataset = F.zerocopy_from_dgl_ndarray(dataset)
+                    if isinstance(dataset, th.Tensor):
+                        shuffle = dataloader_kwargs.get('shuffle', False)
+                        drop_last = dataloader_kwargs.get('drop_last', False)
+                        # manually batch into tensors
+                        dataset = _ScalarDataBatcher(dataset,
+                                                     batch_size=batch_size,
+                                                     shuffle=shuffle,
+                                                     drop_last=drop_last)
+                        # need to overwrite things that will be handled by the batcher
+                        dataloader_kwargs['batch_size'] = None
+                        dataloader_kwargs['shuffle'] = False
+                        dataloader_kwargs['drop_last'] = False
+
+            self.dataloader = DataLoader(
+                dataset,
+                collate_fn=self.collator.collate,
+                **dataloader_kwargs)
             self.is_distributed = False
 
             # Precompute the CSR and CSC representations so each subprocess does not
@@ -317,8 +407,12 @@ class EdgeDataLoader:
 
         See the description of the argument with the same name in the docstring of
         :class:`~dgl.dataloading.EdgeCollator` for more details.
-    reverse_edge_ids : Tensor or dict[etype, Tensor], optional
-        The mapping from the original edge IDs to the ID of their reverse edges.
+    reverse_eids : Tensor or dict[etype, Tensor], optional
+        A tensor of reverse edge ID mapping.  The i-th element indicates the ID of
+        the i-th edge's reverse edge.
+
+        If the graph is heterogeneous, this argument requires a dictionary of edge
+        types and the reverse edge ID mapping tensors.
 
         See the description of the argument with the same name in the docstring of
         :class:`~dgl.dataloading.EdgeCollator` for more details.

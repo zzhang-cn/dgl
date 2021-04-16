@@ -118,9 +118,8 @@ class DistDataLoader:
         self.collate_fn = collate_fn
         self.current_pos = 0
         if self.pool is not None:
-            self.m = mp.Manager()
-            self.barrier = self.m.Barrier(self.num_workers)
-            self.queue = self.m.Queue(maxsize=queue_size)
+            m = mp.Manager()
+            self.queue = m.Queue(maxsize=queue_size)
         else:
             self.queue = Queue(maxsize=queue_size)
         self.drop_last = drop_last
@@ -141,9 +140,10 @@ class DistDataLoader:
 
         if self.pool is not None:
             results = []
+            barrier = m.Barrier(self.num_workers)
             for _ in range(self.num_workers):
                 results.append(self.pool.apply_async(
-                    init_fn, args=(self.barrier, self.name, self.collate_fn, self.queue)))
+                    init_fn, args=(barrier, self.name, self.collate_fn, self.queue)))
             for res in results:
                 res.get()
 
@@ -153,8 +153,11 @@ class DistDataLoader:
         self.pool, self.num_workers = get_sampler_pool()
         if self.pool is not None:
             results = []
+            # Here we need to create the manager and barrier again.
+            m = mp.Manager()
+            barrier = m.Barrier(self.num_workers)
             for _ in range(self.num_workers):
-                results.append(self.pool.apply_async(cleanup_fn, args=(self.barrier, self.name,)))
+                results.append(self.pool.apply_async(cleanup_fn, args=(barrier, self.name,)))
             for res in results:
                 res.get()
 

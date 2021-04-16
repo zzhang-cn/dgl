@@ -64,6 +64,18 @@ def graph1():
     g.edata['scalar_w'] = F.copy_to(F.abs(F.randn((g.number_of_edges(),))), F.cpu())
     return g
 
+@register_case(['homo', 'row_sorted'])
+def graph2():
+    return dgl.graph(([0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 6, 6, 7, 8, 9],
+                      [4, 5, 1, 2, 4, 7, 9, 8 ,6, 4, 1, 0, 1, 0, 2, 3, 5]),
+                      row_sorted=True)
+
+@register_case(['homo', 'row_sorted', 'col_sorted'])
+def graph3():
+    return dgl.graph(([0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 6, 6, 7, 8, 9],
+                      [1, 4, 5, 2, 4, 7, 8, 9 ,1, 4, 6, 0, 0, 1, 2, 3, 5]),
+                      row_sorted=True, col_sorted=True)
+
 @register_case(['hetero', 'has_feature'])
 def heterograph0():
     g = dgl.heterograph({

@@ -157,6 +157,7 @@ def _gen_neighbor_sampling_test_graph(hypersparse, reverse):
         g = dgl.heterograph({
             ('user', 'follow', 'user'): ([0, 0, 0, 1, 1, 1, 2], [1, 2, 3, 0, 2, 3, 0])
         }, {'user': card if card is not None else 4})
+        g = g.to(F.ctx())
         g.edata['prob'] = F.tensor([.5, .5, 0., .5, .5, 0., 1.], dtype=F.float32)
         hg = dgl.heterograph({
             ('user', 'follow', 'user'): ([0, 0, 0, 1, 1, 1, 2],
@@ -165,10 +166,12 @@ def _gen_neighbor_sampling_test_graph(hypersparse, reverse):
             ('user', 'liked-by', 'game'): ([0, 1, 2, 0, 3, 0], [2, 2, 2, 1, 1, 0]),
             ('coin', 'flips', 'user'): ([0, 0, 0, 0], [0, 1, 2, 3])
         }, num_nodes_dict)
+        hg = hg.to(F.ctx())
     else:
         g = dgl.heterograph({
             ('user', 'follow', 'user'): ([1, 2, 3, 0, 2, 3, 0], [0, 0, 0, 1, 1, 1, 2])
         }, {'user': card if card is not None else 4})
+        g = g.to(F.ctx())
         g.edata['prob'] = F.tensor([.5, .5, 0., .5, .5, 0., 1.], dtype=F.float32)
         hg = dgl.heterograph({
             ('user', 'follow', 'user'): ([1, 2, 3, 0, 2, 3, 0],
@@ -177,6 +180,7 @@ def _gen_neighbor_sampling_test_graph(hypersparse, reverse):
             ('game', 'liked-by', 'user'): ([2, 2, 2, 1, 1, 0], [0, 1, 2, 0, 3, 0]),
             ('user', 'flips', 'coin'): ([0, 1, 2, 3], [0, 0, 0, 0])
         }, num_nodes_dict)
+        hg = hg.to(F.ctx())
     hg.edges['follow'].data['prob'] = F.tensor([.5, .5, 0., .5, .5, 0., 1.], dtype=F.float32)
     hg.edges['play'].data['prob'] = F.tensor([.8, .5, .5, .5], dtype=F.float32)
     hg.edges['liked-by'].data['prob'] = F.tensor([.3, .5, .2, .5, .1, .1], dtype=F.float32)
@@ -220,7 +224,7 @@ def _gen_neighbor_topk_test_graph(hypersparse, reverse):
     hg.edges['flips'].data['weight'] = F.tensor([10, 2, 13, -1], dtype=F.float32)
     return g, hg
 
-def _test_sample_neighbors(hypersparse):
+def _test_sample_neighbors(hypersparse, prob):
     g, hg = _gen_neighbor_sampling_test_graph(hypersparse, False)
 
     def _test1(p, replace):
@@ -247,10 +251,8 @@ def _test_sample_neighbors(hypersparse):
             if p is not None:
                 assert not (3, 0) in edge_set
                 assert not (3, 1) in edge_set
-    _test1(None, True)   # w/ replacement, uniform
-    _test1(None, False)  # w/o replacement, uniform
-    _test1('prob', True)   # w/ replacement
-    _test1('prob', False)  # w/o replacement
+    _test1(prob, True)   # w/ replacement, uniform
+    _test1(prob, False)  # w/o replacement, uniform
 
     def _test2(p, replace):  # fanout > #neighbors
         subg = dgl.sampling.sample_neighbors(g, [0, 2], -1, prob=p, replace=replace)
@@ -276,10 +278,8 @@ def _test_sample_neighbors(hypersparse):
                 assert len(edge_set) == num_edges
             if p is not None:
                 assert not (3, 0) in edge_set
-    _test2(None, True)   # w/ replacement, uniform
-    _test2(None, False)  # w/o replacement, uniform
-    _test2('prob', True)   # w/ replacement
-    _test2('prob', False)  # w/o replacement
+    _test2(prob, True)   # w/ replacement, uniform
+    _test2(prob, False)  # w/o replacement, uniform
 
     def _test3(p, replace):
         subg = dgl.sampling.sample_neighbors(hg, {'user': [0, 1], 'game': 0}, -1, prob=p, replace=replace)
@@ -299,10 +299,8 @@ def _test_sample_neighbors(hypersparse):
             assert subg['liked-by'].number_of_edges() == 4 if replace else 3
             assert subg['flips'].number_of_edges() == 0
 
-    _test3(None, True)   # w/ replacement, uniform
-    _test3(None, False)  # w/o replacement, uniform
-    _test3('prob', True)   # w/ replacement
-    _test3('prob', False)  # w/o replacement
+    _test3(prob, True)   # w/ replacement, uniform
+    _test3(prob, False)  # w/o replacement, uniform
 
     # test different fanouts for different relations
     for i in range(10):
@@ -528,9 +526,13 @@ def _test_sample_neighbors_topk_outedge(hypersparse):
         assert subg['flips'].number_of_edges() == 0
     _test3()
 
-@unittest.skipIf(F._default_context_str == 'gpu', reason="GPU sample neighbors not implemented")
-def test_sample_neighbors():
-    _test_sample_neighbors(False)
+def test_sample_neighbors_noprob():
+    _test_sample_neighbors(False, None)
+    #_test_sample_neighbors(True)
+
+@unittest.skipIf(F._default_context_str == 'gpu', reason="GPU sample neighbors with probability is not implemented")
+def test_sample_neighbors_prob():
+    _test_sample_neighbors(False, 'prob')
     #_test_sample_neighbors(True)
 
 @unittest.skipIf(F._default_context_str == 'gpu', reason="GPU sample neighbors not implemented")

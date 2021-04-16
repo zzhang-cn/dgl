@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <tuple>
+#include <numeric>
 #include "array_utils.h"
 
 namespace dgl {
@@ -312,26 +313,85 @@ CSRMatrix COOToCSR(COOMatrix coo) {
   NDArray ret_indices;
   NDArray ret_data;
 
-  bool row_sorted = coo.row_sorted;
-  bool col_sorted = coo.col_sorted;
+  const bool row_sorted = coo.row_sorted;
+  const bool col_sorted = coo.col_sorted;
 
   if (row_sorted) {
     // compute indptr
-    IdType* Bp = static_cast<IdType*>(ret_indptr->data);
+    IdType* const Bp = static_cast<IdType*>(ret_indptr->data);
     Bp[0] = 0;
-    int64_t j = 0;
-    for (int64_t i = 0; i < N; ++i) {
-      const int64_t k = j;
-      for (; j < NNZ && row_data[j] == i; ++j) {}
-      Bp[i + 1] = Bp[i] + j - k;
-    }
 
-    // TODO(minjie): Many of our current implementation assumes that CSR must have
-    //   a data array. This is a temporary workaround. Remove this after:
-    //   - The old immutable graph implementation is deprecated.
-    //   - The old binary reduce kernel is deprecated.
-    if (!COOHasData(coo))
-      coo.data = aten::Range(0, NNZ, coo.row->dtype.bits, coo.row->ctx);
+    if (!data) {
+      // Leave empty, and populate from inside of parallel block
+      coo.data = NDArray::Empty({NNZ}, coo.row->dtype, coo.row->ctx);
+    }
+    IdType * const fill_data = data ? nullptr : static_cast<IdType*>(coo.data->data);
+
+    if (NNZ > 0) {
+      #pragma omp parallel
+      {
+        const int num_threads = omp_get_num_threads();
+        const int thread_id = omp_get_thread_num();
+
+        // We partition the set the of non-zeros among the threads
+        const int64_t nz_chunk = (NNZ+num_threads-1)/num_threads;
+        const int64_t nz_start = thread_id*nz_chunk;
+        const int64_t nz_end = std::min(NNZ, nz_start+nz_chunk);
+
+        // Each thread searchs the row array for a change, and marks it's
+        // location in Bp. Threads, other than the first, start at the last
+        // index covered by the previous, in order to detect changes in the row
+        // array between thread partitions. This means that each thread after
+        // the first, searches the range [nz_start-1, nz_end). That is,
+        // if we had 10 non-zeros, and 4 threads, the indexes searched by each
+        // thread would be:
+        // 0: [0, 1, 2]
+        // 1: [2, 3, 4, 5]
+        // 2: [5, 6, 7, 8]
+        // 3: [8, 9]
+        //
+        // That way, if the row array were [0, 0, 1, 2, 2, 2, 4, 5, 5, 6], each
+        // change in row would be captured by one thread:
+        //
+        // 0: [0, 0, 1] - row 0
+        // 1: [1, 2, 2, 2] - row 1
+        // 2: [2, 4, 5, 5] - rows 2, 3, and 4
+        // 3: [5, 6] - rows 5 and 6
+        //
+        int64_t row = 0;
+        if (nz_start < nz_end) {
+          row = nz_start == 0 ? 0 : row_data[nz_start-1];
+          for (int64_t i = nz_start; i < nz_end; ++i) {
+            while (row != row_data[i]) {
+              ++row;
+              Bp[row] = i;
+            }
+          }
+
+          // We will not detect the row change for the last row, nor any empty
+          // rows at the end of the matrix, so the last active thread needs
+          // mark all remaining rows in Bp with NNZ.
+          if (nz_end == NNZ) {
+            while (row < N) {
+              ++row;
+              Bp[row] = NNZ;
+            }
+          }
+
+          if (fill_data) {
+            // TODO(minjie): Many of our current implementation assumes that CSR must have
+            //   a data array. This is a temporary workaround. Remove this after:
+            //   - The old immutable graph implementation is deprecated.
+            //   - The old binary reduce kernel is deprecated.
+            std::iota(fill_data+nz_start,
+                      fill_data+nz_end,
+                      nz_start);
+          }
+        }
+      }
+    } else {
+      std::fill(Bp, Bp+N+1, 0);
+    }
 
     // compute indices and data
     ret_indices = coo.col;

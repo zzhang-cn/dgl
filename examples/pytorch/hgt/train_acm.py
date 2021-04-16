@@ -42,9 +42,9 @@ def get_n_params(model):
     return pp
 
 def train(model, G):
-    best_val_acc = 0
-    best_test_acc = 0
-    train_step = 0
+    best_val_acc = torch.tensor(0)
+    best_test_acc = torch.tensor(0)
+    train_step = torch.tensor(0)
     for epoch in np.arange(args.n_epoch) + 1:
         model.train()
         logits = model(G, 'paper')

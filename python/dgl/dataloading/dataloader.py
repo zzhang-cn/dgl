@@ -453,7 +453,11 @@ class EdgeCollator(Collator):
 
         If ``g_sampling`` is given, ``exclude`` is ignored and will be always ``None``.
     reverse_eids : Tensor or dict[etype, Tensor], optional
-        The mapping from original edge ID to its reverse edge ID.
+        A tensor of reverse edge ID mapping.  The i-th element indicates the ID of
+        the i-th edge's reverse edge.
+
+        If the graph is heterogeneous, this argument requires a dictionary of edge
+        types and the reverse edge ID mapping tensors.
 
         Required and only used when ``exclude`` is set to ``reverse_id``.
 

@@ -175,6 +175,7 @@ target_include_directories(dgl PRIVATE "third_party/phmap/")
 target_include_directories(dgl PRIVATE "third_party/xbyak/")
 target_include_directories(dgl PRIVATE "third_party/METIS/include/")
 target_include_directories(dgl PRIVATE "tensoradapter/include")
+target_include_directories(dgl PRIVATE "third_party/nanoflann/include")
 
 # For serialization
 if (USE_HDFS)

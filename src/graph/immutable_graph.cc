@@ -305,11 +305,13 @@ void CSR::Save(dmlc::Stream *fs) const {
 // COO graph implementation
 //
 //////////////////////////////////////////////////////////
-COO::COO(int64_t num_vertices, IdArray src, IdArray dst) {
+COO::COO(int64_t num_vertices, IdArray src, IdArray dst,
+        bool row_sorted, bool col_sorted) {
   CHECK(aten::IsValidIdArray(src));
   CHECK(aten::IsValidIdArray(dst));
   CHECK_EQ(src->shape[0], dst->shape[0]);
-  adj_ = aten::COOMatrix{num_vertices, num_vertices, src, dst};
+  adj_ = aten::COOMatrix{num_vertices, num_vertices, src, dst,
+                         aten::NullArray(), row_sorted, col_sorted};
 }
 
 bool COO::IsMultigraph() const {
@@ -537,8 +539,9 @@ ImmutableGraphPtr ImmutableGraph::CreateFromCSR(const std::string &name) {
 }
 
 ImmutableGraphPtr ImmutableGraph::CreateFromCOO(
-    int64_t num_vertices, IdArray src, IdArray dst) {
-  COOPtr coo(new COO(num_vertices, src, dst));
+    int64_t num_vertices, IdArray src, IdArray dst,
+    bool row_sorted, bool col_sorted) {
+  COOPtr coo(new COO(num_vertices, src, dst, row_sorted, col_sorted));
   return std::make_shared<ImmutableGraph>(coo);
 }
 

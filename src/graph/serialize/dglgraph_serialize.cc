@@ -31,6 +31,7 @@
  * }
  *
  */
+#include <dgl/aten/coo.h>
 #include <dgl/graph_op.h>
 #include <dgl/immutable_graph.h>
 #include <dgl/runtime/container.h>
@@ -236,8 +237,15 @@ ImmutableGraphPtr ToImmutableGraph(GraphPtr g) {
     EdgeArray earray = mgr->Edges("eid");
     IdArray srcs_array = earray.src;
     IdArray dsts_array = earray.dst;
+
+    bool row_sorted, col_sorted;
+    std::tie(row_sorted, col_sorted) = COOIsSorted(
+            aten::COOMatrix(mgr->NumVertices(), mgr->NumVertices(), srcs_array,
+            dsts_array));
+
     ImmutableGraphPtr imgptr =
-      ImmutableGraph::CreateFromCOO(mgr->NumVertices(), srcs_array, dsts_array);
+      ImmutableGraph::CreateFromCOO(mgr->NumVertices(), srcs_array, dsts_array,
+            row_sorted, col_sorted);
     return imgptr;
   }
 }

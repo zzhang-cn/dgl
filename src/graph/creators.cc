@@ -18,9 +18,10 @@ HeteroGraphPtr CreateHeteroGraph(
 
 HeteroGraphPtr CreateFromCOO(
     int64_t num_vtypes, int64_t num_src, int64_t num_dst,
-    IdArray row, IdArray col, dgl_format_code_t formats) {
+    IdArray row, IdArray col,
+    bool row_sorted, bool col_sorted, dgl_format_code_t formats) {
   auto unit_g = UnitGraph::CreateFromCOO(
-      num_vtypes, num_src, num_dst, row, col, formats);
+      num_vtypes, num_src, num_dst, row, col, row_sorted, col_sorted, formats);
   return HeteroGraphPtr(new HeteroGraph(unit_g->meta_graph(), {unit_g}));
 }
 

@@ -1,0 +1,66 @@
+pipeline {
+    triggers {
+        issueCommentTrigger('@dgl-bot .*')
+    }
+    agent {
+        docker {
+            label 'linux-benchmark-node'
+            image 'dgllib/dgl-ci-lint'
+            alwaysPull true
+        }
+    }
+    stages {
+        stage('Regression Test') {
+            steps {
+                checkout scm
+                script {
+                    def commentTriggerCause = currentBuild.getBuildCauses('org.jenkinsci.plugins.pipeline.github.trigger.IssueCommentCause')
+                    def prOpenTriggerCause = currentBuild.getBuildCauses('jenkins.branch.BranchEventCause')
+                    def realTriggerCause = currentBuild.getBuildCauses()
+                    echo("BUILD CAUSE: ${realTriggerCause.toString()}")
+
+                    if (commentTriggerCause) {
+                        dir('benchmark_scripts_repo') {
+                            checkout([$class: 'GitSCM', branches: [[name: '*/master']],
+                                userRemoteConfigs: [[credentialsId: 'github', url: 'https://github.com/dglai/DGL_scripts.git']]])
+                        }
+                        sh('cp benchmark_scripts_repo/benchmark/* benchmarks/scripts/')
+                        def comment = env.GITHUB_COMMENT
+                        def author = env.GITHUB_COMMENT_AUTHOR
+                        def authorized_user = ['VoVAllen', 'BarclayII', 'jermainewang', 'zheng-da', 'mufeili']
+                        def isauthorized = author in authorized_user
+                        def command_lists = comment.split(' ')
+                        def instance_type = command_lists[2].replace('.', "")
+                        if (!isauthorized) {
+                            error("Not authorized to launch regression tests")
+                        }
+                        if (command_lists.size() != 5) {
+                            pullRequest.comment('Cannot run the regression test due to unknown command')
+                            error('Unknown command')
+                        } else {
+                            pullRequest.comment("Start the Regression test. View at ${RUN_DISPLAY_URL}")
+                        }
+                        dir('benchmarks/scripts') {
+                            sh('python3 -m pip install boto3')
+                            sh("PYTHONUNBUFFERED=1 GIT_URL=${env.GIT_URL} GIT_BRANCH=${env.CHANGE_BRANCH} python3 run_reg_test.py --data-folder ${env.GIT_COMMIT}_${instance_type} --run-cmd '${comment}'")
+                        }
+                        pullRequest.comment("Finished the Regression test. Result table is at https://dgl-asv-data.s3-us-west-2.amazonaws.com/${env.GIT_COMMIT}_${instance_type}/results/result.csv. Jenkins job link is ${RUN_DISPLAY_URL}. ")
+                    } else {
+                        if (prOpenTriggerCause) {
+                            if (env.BUILD_ID == "1") {
+                                pullRequest.comment('To trigger regression tests: \n - `@dgl-bot run [instance-type] [which tests] [compare-with-branch]`; \n For example: `@dgl-bot run g4dn.4xlarge all dmlc/master` or `@dgl-bot run c5.9xlarge kernel,api dmlc/master`')
+                            }
+                        }
+                        echo('Build was not started by a trigger')
+                    }
+                // echo("Comment: ${commentTriggerCause.getComment()}")
+                }
+            }
+            post {
+                failure {
+                    echo '========Regression execution failed========'
+                }
+            }
+        }
+    }
+}

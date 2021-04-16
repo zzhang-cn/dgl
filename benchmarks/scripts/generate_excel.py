@@ -71,7 +71,7 @@ def dict_to_csv(output_results_dict):
 
 
 def side_by_side_view(df):
-    commits = c['commit'].unique().tolist()
+    commits = df['commit'].unique().tolist()
     full_df = df.loc[df['commit'] == commits[0]]
     for commit in commits[1:]:
         per_commit_df = df.loc[df['commit'] == commit]
@@ -84,4 +84,4 @@ def side_by_side_view(df):
 output_results_dict = main()
 df = dict_to_csv(output_results_dict)
 sbs_df = side_by_side_view(df)
-sbs_df.to_excel("result.xlsx")
+sbs_df.to_csv("result.csv")

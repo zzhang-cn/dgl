@@ -4,7 +4,7 @@
 
 - dask
 - pandas
-- torchtext
+- torchtext==0.5
 
 ## Prepare datasets
 
@@ -20,7 +20,7 @@
 
 1. Download and extract the Nowplaying-rs dataset from https://zenodo.org/record/3248543/files/nowplayingrs.zip?download=1
    into the current directory.
-2. Run `python preprocess_nowplaying_rs.py ./nowplaying_rs_dataset ./data.pkl 
+2. Run `python process_nowplaying_rs.py ./nowplaying_rs_dataset ./data.pkl`
 
 ## Run model
 

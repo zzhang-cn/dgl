@@ -61,12 +61,15 @@ inline GraphPtr CreateUnitGraphMetaGraph(int num_vtypes) {
 
 class UnitGraph::COO : public BaseHeteroGraph {
  public:
-  COO(GraphPtr metagraph, int64_t num_src, int64_t num_dst, IdArray src, IdArray dst)
+  COO(GraphPtr metagraph, int64_t num_src, int64_t num_dst, IdArray src,
+      IdArray dst, bool row_sorted = false, bool col_sorted = false)
     : BaseHeteroGraph(metagraph) {
     CHECK(aten::IsValidIdArray(src));
     CHECK(aten::IsValidIdArray(dst));
     CHECK_EQ(src->shape[0], dst->shape[0]) << "Input arrays should have the same length.";
-    adj_ = aten::COOMatrix{num_src, num_dst, src, dst};
+    adj_ = aten::COOMatrix{num_src, num_dst, src, dst,
+        NullArray(),
+        row_sorted, col_sorted};
   }
 
   COO(GraphPtr metagraph, const aten::COOMatrix& coo)
@@ -1140,12 +1143,14 @@ HeteroSubgraph UnitGraph::EdgeSubgraph(
 HeteroGraphPtr UnitGraph::CreateFromCOO(
     int64_t num_vtypes, int64_t num_src, int64_t num_dst,
     IdArray row, IdArray col,
+    bool row_sorted, bool col_sorted,
     dgl_format_code_t formats) {
   CHECK(num_vtypes == 1 || num_vtypes == 2);
   if (num_vtypes == 1)
     CHECK_EQ(num_src, num_dst);
   auto mg = CreateUnitGraphMetaGraph(num_vtypes);
-  COOPtr coo(new COO(mg, num_src, num_dst, row, col));
+  COOPtr coo(new COO(mg, num_src, num_dst, row, col,
+      row_sorted, col_sorted));
 
   return HeteroGraphPtr(
       new UnitGraph(mg, nullptr, nullptr, coo, formats));

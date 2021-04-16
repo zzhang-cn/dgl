@@ -4,6 +4,7 @@
  * \brief Heterograph CAPI bindings.
  */
 #include <dgl/array.h>
+#include <dgl/aten/coo.h>
 #include <dgl/packed_func_ext.h>
 #include <dgl/immutable_graph.h>
 #include <dgl/runtime/container.h>
@@ -29,13 +30,16 @@ DGL_REGISTER_GLOBAL("heterograph_index._CAPI_DGLHeteroCreateUnitGraphFromCOO")
     IdArray row = args[3];
     IdArray col = args[4];
     List<Value> formats = args[5];
+    bool row_sorted = args[6];
+    bool col_sorted = args[7];
     std::vector<SparseFormat> formats_vec;
     for (Value val : formats) {
       std::string fmt = val->data;
       formats_vec.push_back(ParseSparseFormat(fmt));
     }
-    auto code = SparseFormatsToCode(formats_vec);
-    auto hgptr = CreateFromCOO(nvtypes, num_src, num_dst, row, col, code);
+    const auto code = SparseFormatsToCode(formats_vec);
+    auto hgptr = CreateFromCOO(nvtypes, num_src, num_dst, row, col,
+        row_sorted, col_sorted, code);
     *rv = HeteroGraphRef(hgptr);
   });
 
@@ -53,7 +57,7 @@ DGL_REGISTER_GLOBAL("heterograph_index._CAPI_DGLHeteroCreateUnitGraphFromCSR")
       std::string fmt = val->data;
       formats_vec.push_back(ParseSparseFormat(fmt));
     }
-    auto code = SparseFormatsToCode(formats_vec);
+    const auto code = SparseFormatsToCode(formats_vec);
     auto hgptr = CreateFromCSR(nvtypes, num_src, num_dst, indptr, indices, edge_ids, code);
     *rv = HeteroGraphRef(hgptr);
   });

@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from . import rpc
-from .graph_partition_book import PartitionPolicy
+from .graph_partition_book import NodePartitionPolicy, EdgePartitionPolicy
 from .standalone_kvstore import KVClient as SA_KVClient
 
 from .. import backend as F
@@ -365,8 +365,6 @@ class GetSharedDataRequest(rpc.Request):
             meta[name] = (F.shape(data),
                           F.reverse_data_type_dict[F.dtype(data)],
                           kv_store.part_policy[name].policy_str)
-        if len(meta) == 0:
-            raise RuntimeError('There is no data on kvserver.')
         res = GetSharedDataResponse(meta)
         return res
 
@@ -1058,6 +1056,14 @@ class KVClient(object):
         partition_book : GraphPartitionBook
             Store the partition information
         """
+        # Get all partition policies
+        for ntype in partition_book.ntypes:
+            policy = NodePartitionPolicy(partition_book, ntype)
+            self._all_possible_part_policy[policy.policy_str] = policy
+        for etype in partition_book.etypes:
+            policy = EdgePartitionPolicy(partition_book, etype)
+            self._all_possible_part_policy[policy.policy_str] = policy
+
         # Get shared data from server side
         self.barrier()
         request = GetSharedDataRequest(GET_SHARED_MSG)
@@ -1066,11 +1072,11 @@ class KVClient(object):
         for name, meta in response.meta.items():
             if name not in self._data_name_list:
                 shape, dtype, policy_str = meta
+                assert policy_str in self._all_possible_part_policy
                 shared_data = empty_shared_mem(name+'-kvdata-', False, shape, dtype)
                 dlpack = shared_data.to_dlpack()
                 self._data_store[name] = F.zerocopy_from_dlpack(dlpack)
-                self._part_policy[name] = PartitionPolicy(policy_str, partition_book)
-                self._all_possible_part_policy[policy_str] = self._part_policy[name]
+                self._part_policy[name] = self._all_possible_part_policy[policy_str]
                 self._pull_handlers[name] = default_pull_handler
                 self._push_handlers[name] = default_push_handler
         # Get full data shape across servers

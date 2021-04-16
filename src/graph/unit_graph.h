@@ -174,7 +174,8 @@ class UnitGraph : public BaseHeteroGraph {
   /*! \brief Create a graph from COO arrays */
   static HeteroGraphPtr CreateFromCOO(
       int64_t num_vtypes, int64_t num_src, int64_t num_dst,
-      IdArray row, IdArray col, dgl_format_code_t formats = ALL_CODE);
+      IdArray row, IdArray col, bool row_sorted = false,
+      bool col_sorted = false, dgl_format_code_t formats = ALL_CODE);
 
   static HeteroGraphPtr CreateFromCOO(
       int64_t num_vtypes, const aten::COOMatrix& mat,

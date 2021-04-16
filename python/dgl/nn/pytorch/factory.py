@@ -67,7 +67,7 @@ class KNNGraph(nn.Module):
         self.k = k
 
     #pylint: disable=invalid-name
-    def forward(self, x):
+    def forward(self, x, algorithm='topk'):
         """
 
         Forward computation.
@@ -78,13 +78,21 @@ class KNNGraph(nn.Module):
             :math:`(M, D)` or :math:`(N, M, D)` where :math:`N` means the
             number of point sets, :math:`M` means the number of points in
             each point set, and :math:`D` means the size of features.
+        algorithm : str, optional
+            Algorithm used to compute the k-nearest neighbors.
+
+            * 'topk' will use topk algorithm (quick-select or sorting,
+            depending on backend implementation)
+            * 'kd-tree' will use kd-tree algorithm (cpu version)
+
+            (default: 'topk')
 
         Returns
         -------
         DGLGraph
             A DGLGraph without features.
         """
-        return knn_graph(x, self.k)
+        return knn_graph(x, self.k, algorithm)
 
 
 class SegmentedKNNGraph(nn.Module):
@@ -140,7 +148,7 @@ class SegmentedKNNGraph(nn.Module):
         self.k = k
 
     #pylint: disable=invalid-name
-    def forward(self, x, segs):
+    def forward(self, x, segs, algorithm='topk'):
         r"""Forward computation.
 
         Parameters
@@ -152,6 +160,14 @@ class SegmentedKNNGraph(nn.Module):
             :math:`(N)` integers where :math:`N` means the number of point
             sets.  The number of elements must sum up to :math:`M`. And any
             :math:`N` should :math:`\ge k`
+        algorithm : str, optional
+            Algorithm used to compute the k-nearest neighbors.
+
+            * 'topk' will use topk algorithm (quick-select or sorting,
+            depending on backend implementation)
+            * 'kd-tree' will use kd-tree algorithm (cpu version)
+
+            (default: 'topk')
 
         Returns
         -------
@@ -159,4 +175,4 @@ class SegmentedKNNGraph(nn.Module):
             A DGLGraph without features.
         """
 
-        return segmented_knn_graph(x, self.k, segs)
+        return segmented_knn_graph(x, self.k, segs, algorithm)
