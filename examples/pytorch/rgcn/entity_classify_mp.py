@@ -238,18 +238,19 @@ def run(proc_id, n_gpus, n_cpus, args, devices, dataset, split, queue=None):
         backend = 'nccl'
 
         # using sparse embedding or usig mix_cpu_gpu model (embedding model can not be stored in GPU)
-        if args.dgl_sparse is False:
+        if dev_id < 0 or args.dgl_sparse is False:
             backend = 'gloo'
         print("backend using {}".format(backend))
         th.distributed.init_process_group(backend=backend,
                                           init_method=dist_init_method,
                                           world_size=world_size,
-                                          rank=dev_id)
+                                          rank=proc_id)
 
     # node features
     # None for one-hot feature, if not none, it should be the feature tensor.
     #
-    embed_layer = RelGraphEmbedLayer(dev_id,
+    embed_layer = RelGraphEmbedLayer(dev_id if args.embedding_gpu else -1,
+                                     dev_id,
                                      g.number_of_nodes(),
                                      node_tids,
                                      num_of_ntype,
@@ -281,7 +282,8 @@ def run(proc_id, n_gpus, n_cpus, args, devices, dataset, split, queue=None):
 
     if n_gpus > 1:
         labels = labels.to(dev_id)
-        model.cuda(dev_id)
+        if dev_id >= 0:
+            model.cuda(dev_id)
         model = DistributedDataParallel(model, device_ids=[dev_id], output_device=dev_id)
         if args.dgl_sparse:
             embed_layer.cuda(dev_id)
@@ -355,7 +357,7 @@ def run(proc_id, n_gpus, n_cpus, args, devices, dataset, split, queue=None):
             forward_time.append(t1 - t0)
             backward_time.append(t2 - t1)
             train_acc = th.sum(logits.argmax(dim=1) == labels[seeds]).item() / len(seeds)
-            if i % 100 and proc_id == 0:
+            if i % 100 == 0 and proc_id == 0:
                 print("Train Accuracy: {:.4f} | Train Loss: {:.4f}".
                     format(train_acc, loss.item()))
         gc.collect()
@@ -541,7 +543,7 @@ def main(args, devices):
     n_gpus = len(devices)
     n_cpus = mp.cpu_count()
     # cpu
-    if devices[0] == -1:
+    if devices[0] == -1 and n_gpus == 1:
         run(0, 0, n_cpus, args, ['cpu'],
             (g, node_feats, num_of_ntype, num_classes, num_rels, target_idx,
              train_idx, val_idx, test_idx, labels), None, None)
@@ -628,6 +630,8 @@ def config():
             help="Whether use low mem RelGraphCov")
     parser.add_argument("--dgl-sparse", default=False, action='store_true',
             help='Use sparse embedding for node embeddings.')
+    parser.add_argument("--embedding-gpu", default=False, action='store_true',
+            help='Store the node embeddings on the GPU.')
     parser.add_argument('--node-feats', default=False, action='store_true',
             help='Whether use node features')
     parser.add_argument('--layer-norm', default=False, action='store_true',
