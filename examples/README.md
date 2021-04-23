@@ -91,12 +91,17 @@ The folder contains example implementations of selected research papers related 
 | [GNNExplainer: Generating Explanations for Graph Neural Networks](#gnnexplainer) |  :heavy_check_mark: |                                  |                                  |                                  |                                  |
 | [Interaction Networks for Learning about Objects, Relations and Physics](#graphsim) |  |                                 |:heavy_check_mark:                 |                    |                    |
 | [Representation Learning on Graphs with Jumping Knowledge Networks](#jknet) |  :heavy_check_mark: |                                  |                                  |                                  |                                  |
+| [Combining Label Propagation and Simple Models Out-performs Graph Neural Networks](#correct_and_smooth) |  :heavy_check_mark: |                                  |                                  |                                  |                                  |
+| [Learning from Labeled and Unlabeled Data with Label Propagation](#label_propagation) |  :heavy_check_mark: |                                  |                                  |                                  |                                  |
 
 ## 2021
 
 - <a name="bgnn"></a> Ivanov et al. Boost then Convolve: Gradient Boosting Meets Graph Neural Networks. [Paper link](https://openreview.net/forum?id=ebS5NUfoMKL). 
     - Example code: [PyTorch](../examples/pytorch/bgnn)
     - Tags: semi-supervised node classification, tabular data, GBDT
+- <a name="correct-and-smooth"></a> Huang et al. Combining Label Propagation and Simple Models Out-performs Graph Neural Networks. [Paper link](https://arxiv.org/abs/2010.13993). 
+    - Example code: [PyTorch](../examples/pytorch/correct_and_smooth)
+    - Tags: efficiency, node classification, label propagation
 
 ## 2020
 
@@ -133,21 +138,17 @@ The folder contains example implementations of selected research papers related 
 - <a name="dimenet"></a> Klicpera et al. Directional Message Passing for Molecular Graphs. [Paper link](https://arxiv.org/abs/2003.03123).
     - Example code: [PyTorch](../examples/pytorch/dimenet)
     - Tags: molecules, molecular property prediction, quantum chemistry
-
 - <a name="dagnn"></a> Rossi et al. Temporal Graph Networks For Deep Learning on Dynamic Graphs. [Paper link](https://arxiv.org/abs/2006.10637).
     - Example code: [Pytorch](../examples/pytorch/tgn)
     - Tags: over-smoothing, node classification 
-
 - <a name="dagnn"></a> Rossi et al. Temporal Graph Networks For Deep Learning on Dynamic Graphs. [Paper link](https://arxiv.org/abs/2006.10637).
     - Example code: [Pytorch](../examples/pytorch/tgn)
     - Tags: over-smoothing, node classification 
-
 - <a name="compgcn"></a> Vashishth, Shikhar, et al. Composition-based Multi-Relational Graph Convolutional Networks. [Paper link](https://arxiv.org/abs/1911.03082).
     - Example code: [Pytorch](../examples/pytorch/compGCN)
     - Tags: multi-relational graphs, graph neural network
 
 ## 2019
-
 
 - <a name="infograph"></a> Sun et al. InfoGraph: Unsupervised and Semi-supervised Graph-Level Representation Learning via Mutual Information Maximization. [Paper link](https://arxiv.org/abs/1908.01000). 
     - Example code: [PyTorch](../examples/pytorch/infograph)
@@ -224,7 +225,6 @@ The folder contains example implementations of selected research papers related 
 - <a name='gnnexplainer'></a> Ying, Rex, et al. GNNExplainer: Generating Explanations for Graph Neural Networks. [Paper link](https://arxiv.org/abs/1903.03894).
     - Example code: [PyTorch](../examples/pytorch/gnn_explainer)
     - Tags: Graph Neural Network, Explainability
-
 
 ## 2018
 
@@ -407,6 +407,12 @@ The folder contains example implementations of selected research papers related 
 - <a name="beam"></a> Neuhaus et al. Fast Suboptimal Algorithms for the Computation of Graph Edit Distance. [Paper link](https://link.springer.com/chapter/10.1007/11815921_17).
     - Example code: [PyTorch](../examples/pytorch/graph_matching)
     - Tags: graph edit distance, graph matching
+
+## 2002
+
+- <a name="label-propagation"></a> Zhu et al. Learning from Labeled and Unlabeled Data with Label Propagation. [Paper link](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.14.3864&rep=rep1&type=pdf).
+    - Example code: [PyTorch](../examples/pytorch/label_propagation)
+    - Tags: node classification, label propagation
 
 ## 1998
 
