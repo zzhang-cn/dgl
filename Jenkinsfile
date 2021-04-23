@@ -102,7 +102,7 @@ pipeline {
       agent { 
         docker {
           label "linux-c52x-node"
-          image "dgllib/dgl-ci-lint"  
+          image "public.ecr.aws/s1o7b3d9/dgllib/dgl-ci-lint:latest"  
           alwaysPull true
         }
       }
