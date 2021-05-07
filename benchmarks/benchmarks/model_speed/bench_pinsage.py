@@ -1,14 +1,12 @@
-import pickle, time
-import argparse
-import numpy as np
+import dgl
+import dgl.function as fn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import IterableDataset, DataLoader
-import dgl
-import dgl.function as fn
+from torch.utils.data import DataLoader, IterableDataset
 
 from .. import utils
+
 
 def _init_input_modules(g, ntype, textset, hidden_dims):
     # We initialize the linear projections of each input feature ``x`` as
@@ -45,6 +43,7 @@ def _init_input_modules(g, ntype, textset, hidden_dims):
 
     return module_dict
 
+
 class BagOfWordsPretrained(nn.Module):
     def __init__(self, field, hidden_dims):
         super().__init__()
@@ -58,8 +57,6 @@ class BagOfWordsPretrained(nn.Module):
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0)
 
-        disable_grad(self.emb)
-
     def forward(self, x, length):
         """
         x: (batch_size, max_length) LongTensor
@@ -67,6 +64,7 @@ class BagOfWordsPretrained(nn.Module):
         """
         x = self.emb(x).sum(1) / length.unsqueeze(1).float()
         return self.proj(x)
+
 
 class BagOfWords(nn.Module):
     def __init__(self, field, hidden_dims):
@@ -79,6 +77,7 @@ class BagOfWords(nn.Module):
 
     def forward(self, x, length):
         return self.emb(x).sum(1) / length.unsqueeze(1).float()
+
 
 class WeightedSAGEConv(nn.Module):
     def __init__(self, input_dims, hidden_dims, output_dims, act=F.relu):
@@ -113,9 +112,11 @@ class WeightedSAGEConv(nn.Module):
             ws = g.dstdata['ws'].unsqueeze(1).clamp(min=1)
             z = self.act(self.W(self.dropout(torch.cat([n / ws, h_dst], 1))))
             z_norm = z.norm(2, 1, keepdim=True)
-            z_norm = torch.where(z_norm == 0, torch.tensor(1.).to(z_norm), z_norm)
+            z_norm = torch.where(
+                z_norm == 0, torch.tensor(1.).to(z_norm), z_norm)
             z = z / z_norm
             return z
+
 
 class SAGENet(nn.Module):
     def __init__(self, hidden_dims, n_layers):
@@ -130,7 +131,8 @@ class SAGENet(nn.Module):
 
         self.convs = nn.ModuleList()
         for _ in range(n_layers):
-            self.convs.append(WeightedSAGEConv(hidden_dims, hidden_dims, hidden_dims))
+            self.convs.append(WeightedSAGEConv(
+                hidden_dims, hidden_dims, hidden_dims))
 
     def forward(self, blocks, h):
         for layer, block in zip(self.convs, blocks):
@@ -138,15 +140,18 @@ class SAGENet(nn.Module):
             h = layer(block, (h, h_dst), block.edata['weights'])
         return h
 
+
 class LinearProjector(nn.Module):
     """
     Projects each input feature of the graph linearly and sums them up
     """
+
     def __init__(self, full_graph, ntype, textset, hidden_dims):
         super().__init__()
 
         self.ntype = ntype
-        self.inputs = _init_input_modules(full_graph, ntype, textset, hidden_dims)
+        self.inputs = _init_input_modules(
+            full_graph, ntype, textset, hidden_dims)
 
     def forward(self, ndata):
         projections = []
@@ -166,6 +171,7 @@ class LinearProjector(nn.Module):
             projections.append(result)
 
         return torch.stack(projections, 1).sum(1)
+
 
 class ItemToItemScorer(nn.Module):
     def __init__(self, full_graph, ntype):
@@ -191,6 +197,7 @@ class ItemToItemScorer(nn.Module):
             pair_score = item_item_graph.edata['s']
         return pair_score
 
+
 class PinSAGEModel(nn.Module):
     def __init__(self, full_graph, ntype, textsets, hidden_dims, n_layers):
         super().__init__()
@@ -210,6 +217,7 @@ class PinSAGEModel(nn.Module):
         h_item_dst = self.proj(blocks[-1].dstdata)
         return h_item_dst + self.sage(blocks, h_item)
 
+
 def compact_and_copy(frontier, seeds):
     block = dgl.to_block(frontier, seeds)
     for col, data in frontier.edata.items():
@@ -217,6 +225,7 @@ def compact_and_copy(frontier, seeds):
             continue
         block.edata[col] = data[block.edata[dgl.EID]]
     return block
+
 
 class ItemToItemBatchSampler(IterableDataset):
     def __init__(self, g, user_type, item_type, batch_size):
@@ -229,15 +238,18 @@ class ItemToItemBatchSampler(IterableDataset):
 
     def __iter__(self):
         while True:
-            heads = torch.randint(0, self.g.number_of_nodes(self.item_type), (self.batch_size,))
+            heads = torch.randint(0, self.g.number_of_nodes(
+                self.item_type), (self.batch_size,))
             tails = dgl.sampling.random_walk(
                 self.g,
                 heads,
                 metapath=[self.item_to_user_etype, self.user_to_item_etype])[0][:, 2]
-            neg_tails = torch.randint(0, self.g.number_of_nodes(self.item_type), (self.batch_size,))
+            neg_tails = torch.randint(0, self.g.number_of_nodes(
+                self.item_type), (self.batch_size,))
 
             mask = (tails != -1)
             yield heads[mask], tails[mask], neg_tails[mask]
+
 
 class NeighborSampler(object):
     def __init__(self, g, user_type, item_type, random_walk_length, random_walk_restart_prob,
@@ -249,7 +261,7 @@ class NeighborSampler(object):
         self.item_to_user_etype = list(g.metagraph()[item_type][user_type])[0]
         self.samplers = [
             dgl.sampling.PinSAGESampler(g, item_type, user_type, random_walk_length,
-                random_walk_restart_prob, num_random_walks, num_neighbors)
+                                        random_walk_restart_prob, num_random_walks, num_neighbors)
             for _ in range(num_layers)]
 
     def sample_blocks(self, seeds, heads=None, tails=None, neg_tails=None):
@@ -257,13 +269,14 @@ class NeighborSampler(object):
         for sampler in self.samplers:
             frontier = sampler(seeds)
             if heads is not None:
-                eids = frontier.edge_ids(torch.cat([heads, heads]), torch.cat([tails, neg_tails]), return_uv=True)[2]
+                eids = frontier.edge_ids(torch.cat([heads, heads]), torch.cat(
+                    [tails, neg_tails]), return_uv=True)[2]
                 if len(eids) > 0:
                     old_frontier = frontier
                     frontier = dgl.remove_edges(old_frontier, eids)
-                    #print(old_frontier)
-                    #print(frontier)
-                    #print(frontier.edata['weights'])
+                    # print(old_frontier)
+                    # print(frontier)
+                    # print(frontier.edata['weights'])
                     #frontier.edata['weights'] = old_frontier.edata['weights'][frontier.edata[dgl.EID]]
             block = compact_and_copy(frontier, seeds)
             seeds = block.srcdata[dgl.NID]
@@ -285,6 +298,7 @@ class NeighborSampler(object):
         blocks = self.sample_blocks(seeds, heads, tails, neg_tails)
         return pos_graph, neg_graph, blocks
 
+
 def assign_simple_node_features(ndata, g, ntype, assign_id=False):
     """
     Copies data to the given block from the corresponding nodes in the original graph.
@@ -294,6 +308,7 @@ def assign_simple_node_features(ndata, g, ntype, assign_id=False):
             continue
         induced_nodes = ndata[dgl.NID]
         ndata[col] = g.nodes[ntype].data[col][induced_nodes]
+
 
 def assign_textual_node_features(ndata, textset, ntype):
     """
@@ -329,6 +344,7 @@ def assign_textual_node_features(ndata, textset, ntype):
         ndata[field_name] = tokens
         ndata[field_name + '__len'] = lengths
 
+
 def assign_features_to_blocks(blocks, g, textset, ntype):
     # For the first block (which is closest to the input), copy the features from
     # the original graph as well as the texts.
@@ -336,6 +352,7 @@ def assign_features_to_blocks(blocks, g, textset, ntype):
     assign_textual_node_features(blocks[0].srcdata, textset, ntype)
     assign_simple_node_features(blocks[-1].dstdata, g, ntype)
     assign_textual_node_features(blocks[-1].dstdata, textset, ntype)
+
 
 class PinSAGECollator(object):
     def __init__(self, sampler, g, ntype, textset):
@@ -347,7 +364,8 @@ class PinSAGECollator(object):
     def collate_train(self, batches):
         heads, tails, neg_tails = batches[0]
         # Construct multilayer neighborhood via PinSAGE...
-        pos_graph, neg_graph, blocks = self.sampler.sample_from_item_pairs(heads, tails, neg_tails)
+        pos_graph, neg_graph, blocks = self.sampler.sample_from_item_pairs(
+            heads, tails, neg_tails)
         assign_features_to_blocks(blocks, self.g, self.textset, self.ntype)
 
         return pos_graph, neg_graph, blocks
@@ -357,6 +375,7 @@ class PinSAGECollator(object):
         blocks = self.sampler.sample_blocks(batch)
         assign_features_to_blocks(blocks, self.g, self.textset, self.ntype)
         return blocks
+
 
 @utils.benchmark('time', 600)
 @utils.parametrize('data', ['nowplaying_rs'])
@@ -368,6 +387,7 @@ def track_time(data):
     item_ntype = dataset.item_ntype
     textset = dataset.textset
 
+    num_runs = 3
     batch_size = 32
     random_walk_length = 2
     random_walk_restart_prob = 0.5
@@ -398,44 +418,48 @@ def track_time(data):
         num_workers=num_workers)
 
     # Model
-    model = PinSAGEModel(g, item_ntype, textset, hidden_dims, num_layers).to(device)
+    model = PinSAGEModel(g, item_ntype, textset,
+                         hidden_dims, num_layers).to(device)
     # Optimizer
     opt = torch.optim.Adam(model.parameters(), lr=lr)
 
     model.train()
-    for batch_id, (pos_graph, neg_graph, blocks) in enumerate(dataloader):
-        # Copy to GPU
-        for i in range(len(blocks)):
-            blocks[i] = blocks[i].to(device)
-        pos_graph = pos_graph.to(device)
-        neg_graph = neg_graph.to(device)
 
-        loss = model(pos_graph, neg_graph, blocks).mean()
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+    timer = utils.ModelSpeedTimer()
 
-        if batch_id >= 3:
-            break
+    for run in range(num_runs):
+        for batch_id, (pos_graph, neg_graph, blocks) in enumerate(dataloader):
+            # Copy to GPU
+            for i in range(len(blocks)):
+                blocks[i] = blocks[i].to(device)
+            pos_graph = pos_graph.to(device)
+            neg_graph = neg_graph.to(device)
 
-    print("start training...")
-    t0 = time.time()
-    # For each batch of head-tail-negative triplets...
-    for batch_id, (pos_graph, neg_graph, blocks) in enumerate(dataloader):
-        # Copy to GPU
-        for i in range(len(blocks)):
-            blocks[i] = blocks[i].to(device)
-        pos_graph = pos_graph.to(device)
-        neg_graph = neg_graph.to(device)
+            loss = model(pos_graph, neg_graph, blocks).mean()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
 
-        loss = model(pos_graph, neg_graph, blocks).mean()
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+            if batch_id >= 4:
+                break
 
-        if batch_id >= 10:  # time 10 loops
-            break
+        print("start training...")
 
-    t1 = time.time()
+        # For each batch of head-tail-negative triplets...
+        for batch_id, (pos_graph, neg_graph, blocks) in enumerate(dataloader):
+            with timer as t:
+                # Copy to GPU
+                for i in range(len(blocks)):
+                    blocks[i] = blocks[i].to(device)
+                pos_graph = pos_graph.to(device)
+                neg_graph = neg_graph.to(device)
 
-    return (t1 - t0) / (batch_id + 1)
+                loss = model(pos_graph, neg_graph, blocks).mean()
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+
+            if batch_id >= 9:  # time 10 loops
+                break
+
+    return timer.average_epoch_time

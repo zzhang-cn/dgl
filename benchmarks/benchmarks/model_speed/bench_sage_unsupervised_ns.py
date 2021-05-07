@@ -1,17 +1,14 @@
 import dgl
+import dgl.function as fn
+import dgl.nn.pytorch as dglnn
 import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-import dgl.nn.pytorch as dglnn
-import dgl.function as fn
-import time
-import traceback
 
 from .. import utils
+
 
 class NegativeSampler(object):
     def __init__(self, g, k, neg_share=False):
@@ -30,12 +27,14 @@ class NegativeSampler(object):
         src = src.repeat_interleave(self.k)
         return src, dst
 
+
 def load_subtensor(g, input_nodes, device):
     """
     Copys features and labels of a set of nodes onto GPU.
     """
     batch_inputs = g.ndata['features'][input_nodes].to(device)
     return batch_inputs
+
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -66,12 +65,14 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
+
 def load_subtensor(g, input_nodes, device):
     """
     Copys features and labels of a set of nodes onto GPU.
     """
     batch_inputs = g.ndata['features'][input_nodes].to(device)
     return batch_inputs
+
 
 class CrossEntropyLoss(nn.Module):
     def forward(self, block_outputs, pos_graph, neg_graph):
@@ -85,28 +86,30 @@ class CrossEntropyLoss(nn.Module):
             neg_score = neg_graph.edata['score']
 
         score = th.cat([pos_score, neg_score])
-        label = th.cat([th.ones_like(pos_score), th.zeros_like(neg_score)]).long()
+        label = th.cat(
+            [th.ones_like(pos_score), th.zeros_like(neg_score)]).long()
         loss = F.binary_cross_entropy_with_logits(score, label.float())
         return loss
+
 
 @utils.benchmark('time', 600)
 @utils.parametrize('data', ['reddit'])
 @utils.parametrize('num_negs', [2, 8, 32])
 @utils.parametrize('batch_size', [1024, 2048, 8192])
 def track_time(data, num_negs, batch_size):
-    data = utils.process_data(data)
+    dataset = utils.process_data(data)
     device = utils.get_bench_device()
-    g = data[0]
+    g = dataset[0]
     g.ndata['features'] = g.ndata['feat']
     g.ndata['labels'] = g.ndata['label']
     in_feats = g.ndata['features'].shape[1]
-    n_classes = data.num_classes
+    n_classes = dataset.num_classes
 
     # Create csr/coo/csc formats before launching training processes with multi-gpu.
     # This avoids creating certain formats in each sub-process, which saves momory and CPU.
     g.create_formats_()
 
-    num_epochs = 2
+    num_runs = 3
     num_hidden = 16
     num_layers = 2
     fan_out = '10,25'
@@ -135,51 +138,54 @@ def track_time(data, num_negs, batch_size):
         num_workers=num_workers)
 
     # Define model and optimizer
-    model = SAGE(in_feats, num_hidden, n_classes, num_layers, F.relu, dropout)
+    model = SAGE(in_feats, num_hidden, n_classes,
+                 num_layers, F.relu, dropout)
     model = model.to(device)
     loss_fcn = CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    # dry run
-    for step, (input_nodes, pos_graph, neg_graph, blocks) in enumerate(dataloader):
-        # Load the input features as well as output labels
-        batch_inputs = load_subtensor(g, input_nodes, device)
+    timer = utils.ModelSpeedTimer()
 
-        pos_graph = pos_graph.to(device)
-        neg_graph = neg_graph.to(device)
-        blocks = [block.int().to(device) for block in blocks]
-        # Compute loss and prediction
-        batch_pred = model(blocks, batch_inputs)
-        loss = loss_fcn(batch_pred, pos_graph, neg_graph)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    for run in range(num_runs):
+        # dry run
+        for step, (input_nodes, pos_graph, neg_graph, blocks) in enumerate(dataloader):
+            # Load the input features as well as output labels
+            batch_inputs = load_subtensor(g, input_nodes, device)
 
-        if step >= 3:
-            break
+            pos_graph = pos_graph.to(device)
+            neg_graph = neg_graph.to(device)
+            blocks = [block.int().to(device) for block in blocks]
+            # Compute loss and prediction
+            batch_pred = model(blocks, batch_inputs)
+            loss = loss_fcn(batch_pred, pos_graph, neg_graph)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    # Training loop
-    avg = 0
-    iter_tput = []
-    t0 = time.time()
-    for step, (input_nodes, pos_graph, neg_graph, blocks) in enumerate(dataloader):
-        # Load the input features as well as output labels
-        batch_inputs = load_subtensor(g, input_nodes, device)
+            if step >= 4:
+                break
 
-        pos_graph = pos_graph.to(device)
-        neg_graph = neg_graph.to(device)
-        blocks = [block.int().to(device) for block in blocks]
-        # Compute loss and prediction
-        batch_pred = model(blocks, batch_inputs)
-        loss = loss_fcn(batch_pred, pos_graph, neg_graph)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # Training loop
+        avg = 0
+        iter_tput = []
 
-        if step >= 9:  # time 10 loops
-            break
+        for step, (input_nodes, pos_graph, neg_graph, blocks) in enumerate(dataloader):
+            with timer as t:
+                # Load the input features as well as output labels
+                batch_inputs = load_subtensor(g, input_nodes, device)
 
-    t1 = time.time()
+                pos_graph = pos_graph.to(device)
+                neg_graph = neg_graph.to(device)
+                blocks = [block.int().to(device) for block in blocks]
+                # Compute loss and prediction
+                batch_pred = model(blocks, batch_inputs)
+                loss = loss_fcn(batch_pred, pos_graph, neg_graph)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-    return (t1 - t0) / (step + 1)
+            if step >= 9:  # time 10 loops
+                break
+
+    return timer.average_epoch_time

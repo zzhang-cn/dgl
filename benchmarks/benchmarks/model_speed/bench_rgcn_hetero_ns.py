@@ -1,16 +1,13 @@
-import dgl
 import itertools
+
+import dgl
+import dgl.nn.pytorch as dglnn
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-import dgl.nn.pytorch as dglnn
-import time
-import traceback
 
 from .. import utils
+
 
 class RelGraphConvLayer(nn.Module):
     r"""Relational graph convolution layer.
@@ -36,6 +33,7 @@ class RelGraphConvLayer(nn.Module):
     dropout : float, optional
         Dropout rate. Default: 0.0
     """
+
     def __init__(self,
                  in_feat,
                  out_feat,
@@ -57,18 +55,22 @@ class RelGraphConvLayer(nn.Module):
         self.self_loop = self_loop
 
         self.conv = dglnn.HeteroGraphConv({
-                rel : dglnn.GraphConv(in_feat, out_feat, norm='right', weight=False, bias=False)
-                for rel in rel_names
-            })
+            rel: dglnn.GraphConv(
+                in_feat, out_feat, norm='right', weight=False, bias=False)
+            for rel in rel_names
+        })
 
         self.use_weight = weight
         self.use_basis = num_bases < len(self.rel_names) and weight
         if self.use_weight:
             if self.use_basis:
-                self.basis = dglnn.WeightBasis((in_feat, out_feat), num_bases, len(self.rel_names))
+                self.basis = dglnn.WeightBasis(
+                    (in_feat, out_feat), num_bases, len(self.rel_names))
             else:
-                self.weight = nn.Parameter(th.Tensor(len(self.rel_names), in_feat, out_feat))
-                nn.init.xavier_uniform_(self.weight, gain=nn.init.calculate_gain('relu'))
+                self.weight = nn.Parameter(
+                    th.Tensor(len(self.rel_names), in_feat, out_feat))
+                nn.init.xavier_uniform_(
+                    self.weight, gain=nn.init.calculate_gain('relu'))
 
         # bias
         if bias:
@@ -101,14 +103,15 @@ class RelGraphConvLayer(nn.Module):
         g = g.local_var()
         if self.use_weight:
             weight = self.basis() if self.use_basis else self.weight
-            wdict = {self.rel_names[i] : {'weight' : w.squeeze(0)}
+            wdict = {self.rel_names[i]: {'weight': w.squeeze(0)}
                      for i, w in enumerate(th.split(weight, 1, dim=0))}
         else:
             wdict = {}
 
         if g.is_block:
             inputs_src = inputs
-            inputs_dst = {k: v[:g.number_of_dst_nodes(k)] for k, v in inputs.items()}
+            inputs_dst = {k: v[:g.number_of_dst_nodes(
+                k)] for k, v in inputs.items()}
         else:
             inputs_src = inputs_dst = inputs
 
@@ -122,11 +125,12 @@ class RelGraphConvLayer(nn.Module):
             if self.activation:
                 h = self.activation(h)
             return self.dropout(h)
-        return {ntype : _apply(ntype, h) for ntype, h in hs.items()}
+        return {ntype: _apply(ntype, h) for ntype, h in hs.items()}
 
 
 class RelGraphEmbed(nn.Module):
     r"""Embedding layer for featureless heterograph."""
+
     def __init__(self,
                  g,
                  device,
@@ -150,7 +154,8 @@ class RelGraphEmbed(nn.Module):
         self.node_embeds = nn.ModuleDict()
         for ntype in g.ntypes:
             if node_feats[ntype] is None:
-                sparse_emb = th.nn.Embedding(num_nodes[ntype], embed_size, sparse=True)
+                sparse_emb = th.nn.Embedding(
+                    num_nodes[ntype], embed_size, sparse=True)
                 nn.init.uniform_(sparse_emb.weight, -1.0, 1.0)
                 self.node_embeds[ntype] = sparse_emb
             else:
@@ -177,10 +182,13 @@ class RelGraphEmbed(nn.Module):
         embeds = {}
         for ntype in block.ntypes:
             if self.node_feats[ntype] is None:
-                embeds[ntype] = self.node_embeds[ntype](block.nodes(ntype)).to(self.device)
+                embeds[ntype] = self.node_embeds[ntype](
+                    block.nodes(ntype)).to(self.device)
             else:
-                embeds[ntype] = self.node_feats[ntype][block.nodes(ntype)].to(self.device) @ self.embeds[ntype]
+                embeds[ntype] = self.node_feats[ntype][block.nodes(
+                    ntype)].to(self.device) @ self.embeds[ntype]
         return embeds
+
 
 class EntityClassify(nn.Module):
     def __init__(self,
@@ -227,6 +235,7 @@ class EntityClassify(nn.Module):
             h = layer(block, h)
         return h
 
+
 @utils.benchmark('time', 600)
 @utils.parametrize('data', ['am', 'ogbn-mag'])
 def track_time(data):
@@ -242,9 +251,10 @@ def track_time(data):
     else:
         raise ValueError()
 
+    num_runs = 3
     fanout = 4
     n_layers = 2
-    batch_size = 1024
+    batch_size = 64 if data == 'am' else 1024
     n_hidden = 64
     dropout = 0.5
     use_self_loop = True
@@ -259,11 +269,19 @@ def track_time(data):
 
     node_feats = {}
     num_nodes = {}
+
     for ntype in hg.ntypes:
         node_feats[ntype] = hg.nodes[ntype].data['feat'] if 'feat' in hg.nodes[ntype].data else None
         num_nodes[ntype] = hg.number_of_nodes(ntype)
 
-    embed_layer = RelGraphEmbed(hg, device, n_hidden, num_nodes, node_feats)
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(
+        [fanout] * n_layers)
+    loader = dgl.dataloading.NodeDataLoader(
+        hg, {category: train_idx}, sampler,
+        batch_size=batch_size, shuffle=True, num_workers=4)
+
+    embed_layer = RelGraphEmbed(
+        hg, device, n_hidden, num_nodes, node_feats)
     model = EntityClassify(hg,
                            n_hidden,
                            num_classes,
@@ -274,55 +292,53 @@ def track_time(data):
     embed_layer = embed_layer.to(device)
     model = model.to(device)
 
-    all_params = itertools.chain(model.parameters(), embed_layer.embeds.parameters())
+    all_params = itertools.chain(
+        model.parameters(), embed_layer.embeds.parameters())
     optimizer = th.optim.Adam(all_params, lr=lr, weight_decay=l2norm)
-    sparse_optimizer = th.optim.SparseAdam(list(embed_layer.node_embeds.parameters()), lr=lr)
+    sparse_optimizer = th.optim.SparseAdam(
+        list(embed_layer.node_embeds.parameters()), lr=lr)
 
-    sampler = dgl.dataloading.MultiLayerNeighborSampler([fanout] * n_layers)
-    loader = dgl.dataloading.NodeDataLoader(
-        hg, {category: train_idx}, sampler,
-        batch_size=batch_size, shuffle=True, num_workers=4)
+    timer = utils.ModelSpeedTimer()
 
-    # dry run
-    for i, (input_nodes, seeds, blocks) in enumerate(loader):
-        blocks = [blk.to(device) for blk in blocks]
-        seeds = seeds[category]     # we only predict the nodes with type "category"
-        batch_tic = time.time()
-        emb = embed_layer(blocks[0])
-        lbl = labels[seeds].to(device)
-        emb = {k : e.to(device) for k, e in emb.items()}
-        logits = model(emb, blocks)[category]
-        loss = F.cross_entropy(logits, lbl)
-        loss.backward()
-        optimizer.step()
-        sparse_optimizer.step()
+    for run in range(num_runs):
+        # dry run
+        for i, (input_nodes, seeds, blocks) in enumerate(loader):
+            blocks = [blk.to(device) for blk in blocks]
+            # we only predict the nodes with type "category"
+            seeds = seeds[category]
+            emb = embed_layer(blocks[0])
+            lbl = labels[seeds].to(device)
+            emb = {k: e.to(device) for k, e in emb.items()}
+            logits = model(emb, blocks)[category]
+            loss = F.cross_entropy(logits, lbl)
+            loss.backward()
+            optimizer.step()
+            sparse_optimizer.step()
 
-        if i >= 3:
-            break
+            if i >= 4:
+                break
 
-    print("start training...")
-    model.train()
-    embed_layer.train()
-    optimizer.zero_grad()
-    sparse_optimizer.zero_grad()
+        print("start training...")
+        model.train()
+        embed_layer.train()
+        optimizer.zero_grad()
+        sparse_optimizer.zero_grad()
 
-    t0 = time.time()
-    for i, (input_nodes, seeds, blocks) in enumerate(loader):
-        blocks = [blk.to(device) for blk in blocks]
-        seeds = seeds[category]     # we only predict the nodes with type "category"
-        batch_tic = time.time()
-        emb = embed_layer(blocks[0])
-        lbl = labels[seeds].to(device)
-        emb = {k : e.to(device) for k, e in emb.items()}
-        logits = model(emb, blocks)[category]
-        loss = F.cross_entropy(logits, lbl)
-        loss.backward()
-        optimizer.step()
-        sparse_optimizer.step()
+        for i, (input_nodes, seeds, blocks) in enumerate(loader):
+            with timer as t:
+                blocks = [blk.to(device) for blk in blocks]
+                # we only predict the nodes with type "category"
+                seeds = seeds[category]
+                emb = embed_layer(blocks[0])
+                lbl = labels[seeds].to(device)
+                emb = {k: e.to(device) for k, e in emb.items()}
+                logits = model(emb, blocks)[category]
+                loss = F.cross_entropy(logits, lbl)
+                loss.backward()
+                optimizer.step()
+                sparse_optimizer.step()
 
-        if i >= 9:  # time 10 loops
-            break
+            if i >= 9:  # time 10 loops
+                break
 
-    t1 = time.time()
-
-    return (t1 - t0) / (i + 1)
+    return timer.average_epoch_time
