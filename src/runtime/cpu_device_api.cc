@@ -2,6 +2,9 @@
  *  Copyright (c) 2016 by Contributors
  * \file cpu_device_api.cc
  */
+#ifndef _WIN32
+#include <sys/mman.h>
+#endif
 #include <dmlc/logging.h>
 #include <dmlc/thread_local.h>
 #include <dgl/runtime/registry.h>
@@ -32,8 +35,20 @@ class CPUDeviceAPI final : public DeviceAPI {
     ptr = memalign(alignment, nbytes);
     if (ptr == nullptr) throw std::bad_alloc();
 #else
-    int ret = posix_memalign(&ptr, alignment, nbytes);
-    if (ret != 0) throw std::bad_alloc();
+#ifndef _WIN32
+    constexpr size_t _HugePage2MB_ = 1<<21;
+    if (nbytes >= _HugePage2MB_) {
+       int ret = posix_memalign(&ptr, _HugePage2MB_, nbytes);
+       if (ret != 0) throw std::bad_alloc();
+       if ((ret= madvise(ptr, nbytes, MADV_HUGEPAGE )) != 0 )
+       throw std::bad_alloc();
+    } else {
+#endif
+       int ret = posix_memalign(&ptr, alignment, nbytes);
+       if (ret != 0) throw std::bad_alloc();
+#ifndef _WIN32
+    }
+#endif
 #endif
     return ptr;
   }
