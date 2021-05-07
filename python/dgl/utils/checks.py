@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division
 
 from ..base import DGLError
+from .._ffi.function import _init_api
 from .. import backend as F
 
 def prepare_tensor(g, data, name):
@@ -166,3 +167,42 @@ def check_valid_idtype(idtype):
     if idtype not in [None, F.int32, F.int64]:
         raise DGLError('Expect idtype to be a framework object of int32/int64, '
                        'got {}'.format(idtype))
+
+def is_sorted_srcdst(src, dst, num_src=None, num_dst=None):
+    """Checks whether an edge list is in ascending src-major order (e.g., first
+    sorted by ``src`` and then by ``dst``).
+
+    Parameters
+    ----------
+    src : IdArray
+        The tensor of source nodes for each edge.
+    dst : IdArray
+        The tensor of destination nodes for each edge.
+    num_src : int, optional
+        The number of source nodes.
+    num_dst : int, optional
+        The number of destination nodes.
+
+    Returns
+    -------
+    bool, bool
+        Whether ``src`` is in ascending order, and whether ``dst`` is
+        in ascending order with respect to ``src``.
+    """
+    # for some versions of MXNET and TensorFlow, num_src and num_dst get
+    # incorrectly marked as floats, so force them as integers here
+    if num_src is None:
+        num_src = int(F.as_scalar(F.max(src, dim=0)+1))
+    if num_dst is None:
+        num_dst = int(F.as_scalar(F.max(dst, dim=0)+1))
+
+    src = F.zerocopy_to_dgl_ndarray(src)
+    dst = F.zerocopy_to_dgl_ndarray(dst)
+    sorted_status = _CAPI_DGLCOOIsSorted(src, dst, num_src, num_dst)
+
+    row_sorted = sorted_status > 0
+    col_sorted = sorted_status > 1
+
+    return row_sorted, col_sorted
+
+_init_api("dgl.utils.checks")
