@@ -63,7 +63,7 @@ class SAGE(nn.Module):
                 th.arange(g.num_nodes()),
                 sampler,
                 batch_size=args.batch_size,
-                shuffle=True,
+                shuffle=args.dataloader_shuffle_data,
                 drop_last=False,
                 num_workers=args.num_workers)
 
@@ -139,7 +139,7 @@ def run(args, device, data):
         sampler,
         device=dataloader_device,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=args.dataloader_shuffle_data,
         drop_last=False,
         num_workers=args.num_workers)
 
@@ -196,6 +196,7 @@ if __name__ == '__main__':
     argparser.add_argument('--gpu', type=int, default=0,
                            help="GPU device ID. Use -1 for CPU training")
     argparser.add_argument('--dataset', type=str, default='reddit')
+    argparser.add_argument('--dataloader_shuffle_data', type=bool, default=True)
     argparser.add_argument('--num-epochs', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=16)
     argparser.add_argument('--num-layers', type=int, default=2)

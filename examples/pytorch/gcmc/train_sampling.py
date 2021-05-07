@@ -174,6 +174,7 @@ def config():
                         help='The dataset name: ml-100k, ml-1m, ml-10m')
     parser.add_argument('--data_test_ratio', type=float, default=0.1) ## for ml-100k the test ration is 0.2
     parser.add_argument('--data_valid_ratio', type=float, default=0.1)
+    parser.add_argument('--dataloader_shuffle_data', type=bool, default=True)
     parser.add_argument('--use_one_hot_fea', action='store_true', default=False)
     parser.add_argument('--model_activation', type=str, default="leaky")
     parser.add_argument('--gcn_dropout', type=float, default=0.7)
@@ -226,7 +227,7 @@ def run(proc_id, n_gpus, args, devices, dataset):
          for k in dataset.possible_rating_values},
         sampler,
         batch_size=args.minibatch_size,
-        shuffle=True,
+        shuffle=args.dataloader_shuffle_data,
         drop_last=False)
 
     if proc_id == 0:
