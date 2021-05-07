@@ -5600,7 +5600,6 @@ class DGLHeteroGraph(object):
         gidx = self._graph.shared_memory(name, self.ntypes, self.etypes, formats)
         return DGLHeteroGraph(gidx, self.ntypes, self.etypes)
 
-
     def long(self):
         """Cast the graph to one with idtype int64
 

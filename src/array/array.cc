@@ -521,6 +521,21 @@ void CSRSort_(CSRMatrix* csr) {
   });
 }
 
+NDArray CSRSortByTag(const CSRMatrix* csr, IdArray tag, int64_t num_tags, CSRMatrix* output) {
+  CHECK_EQ(csr->num_cols, tag->shape[0])
+      << "The length of the tag array should be equal to the number of columns ";
+  CHECK_SAME_CONTEXT(csr->indices, tag);
+  CHECK_INT(tag, "tag");
+  // should check csr and output are of the same shape and type.
+  NDArray ret;
+  ATEN_CSR_SWITCH(*csr, XPU, IdType, "CSRSortByTag", {
+    ATEN_ID_TYPE_SWITCH(tag->dtype, TagType, {
+      ret = impl::CSRSortByTag<XPU, IdType, TagType>(csr, tag, num_tags, output);
+    });
+  });
+  return ret;
+}
+
 CSRMatrix CSRReorder(CSRMatrix csr, runtime::NDArray new_row_ids, runtime::NDArray new_col_ids) {
   CSRMatrix ret;
   ATEN_CSR_SWITCH(csr, XPU, IdType, "CSRReorder", {

@@ -139,6 +139,9 @@ CSRMatrix CSRSliceMatrix(CSRMatrix csr, runtime::NDArray rows, runtime::NDArray 
 template <DLDeviceType XPU, typename IdType>
 void CSRSort_(CSRMatrix* csr);
 
+template <DLDeviceType XPU, typename IdType, typename TagType>
+NDArray CSRSortByTag(const CSRMatrix* csr, IdArray tag_array, int64_t num_tags, CSRMatrix* output);
+
 template <DLDeviceType XPU, typename IdType>
 CSRMatrix CSRReorder(CSRMatrix csr, runtime::NDArray new_row_ids, runtime::NDArray new_col_ids);
 

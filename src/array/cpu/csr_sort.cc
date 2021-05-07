@@ -78,6 +78,71 @@ void CSRSort_(CSRMatrix* csr) {
 template void CSRSort_<kDLCPU, int64_t>(CSRMatrix* csr);
 template void CSRSort_<kDLCPU, int32_t>(CSRMatrix* csr);
 
+template <DLDeviceType XPU, typename IdType, typename TagType>
+NDArray CSRSortByTag(const CSRMatrix* csr, const IdArray tag_array, int64_t num_tags, CSRMatrix* output) {
+std::cerr << "Called" << std::endl;
+  const auto indptr_data = static_cast<const IdType *>(csr->indptr->data);
+  const auto indices_data = static_cast<const IdType *>(csr->indices->data);
+  const auto eid_array = aten::CSRHasData(*csr) ? csr->data :
+    aten::Range(0, csr->indices->shape[0], csr->indptr->dtype.bits, csr->indptr->ctx);
+  const auto eid_data = static_cast<const IdType *>(csr->data->data);
+  const auto tag_data = static_cast<const TagType *>(tag_array->data);
+  const int64_t num_rows = csr->num_rows;
+
+  NDArray tag_pos = NDArray::Empty({csr->num_rows, num_tags + 1},
+      csr->indptr->dtype, csr->indptr->ctx);
+  auto tag_pos_data = static_cast<IdType *>(tag_pos->data);
+  std::fill(tag_pos_data, tag_pos_data + csr->num_rows * (num_tags + 1), 0);
+
+  auto out_indptr_data = static_cast<IdType *>(output->indptr->data);
+  auto out_indices_data = static_cast<IdType *>(output->indices->data);
+  auto out_eid_data = static_cast<IdType *>(output->data->data);
+
+// #pragma omp parallel for
+  for (IdType src = 0 ; src < num_rows ; ++src) {
+    const IdType start = indptr_data[src];
+    const IdType end = indptr_data[src + 1];
+
+    auto tag_pos_row = tag_pos_data + src * (num_tags + 1);
+    std::vector<IdType> pointer(num_tags, 0);
+
+    for (IdType ptr = start ; ptr < end ; ++ptr) {
+      const IdType dst = indices_data[ptr];
+      const TagType tag = tag_data[dst];
+      CHECK_LT(tag, num_tags);
+      ++tag_pos_row[tag + 1];
+    } // count
+
+    for (TagType tag = 1 ; tag <= num_tags; ++tag) {
+      tag_pos_row[tag] += tag_pos_row[tag - 1];
+    } // cumulate
+
+    for (IdType ptr = start ; ptr < end ; ++ptr) {
+      IdType dst = indices_data[ptr];
+      IdType eid = eid_data[ptr];
+      TagType tag = tag_data[dst];
+      IdType offset = tag_pos_row[tag] + pointer[tag];
+      CHECK_LT(offset, tag_pos_row[tag + 1]);
+      ++pointer[tag];
+
+      out_indices_data[start + offset] = dst;
+      out_eid_data[start + offset] = eid;
+    }
+  }
+
+  output->sorted = false;
+  return tag_pos;
+}
+
+template NDArray CSRSortByTag<kDLCPU, int64_t, int64_t>(
+    const CSRMatrix* csr, const IdArray tag, int64_t num_tags, CSRMatrix* output);
+template NDArray CSRSortByTag<kDLCPU, int64_t, int32_t>(
+    const CSRMatrix* csr, const IdArray tag, int64_t num_tags, CSRMatrix* output);
+template NDArray CSRSortByTag<kDLCPU, int32_t, int64_t>(
+    const CSRMatrix* csr, const IdArray tag, int64_t num_tags, CSRMatrix* output);
+template NDArray CSRSortByTag<kDLCPU, int32_t, int32_t>(
+    const CSRMatrix* csr, const IdArray tag, int64_t num_tags, CSRMatrix* output);
+
 }  // namespace impl
 }  // namespace aten
 }  // namespace dgl
