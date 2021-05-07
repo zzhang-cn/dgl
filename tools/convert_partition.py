@@ -189,14 +189,17 @@ for part_id in range(num_parts):
     reshuffle_nodes = th.cat([reshuffle_nodes[compact_g.ndata['inner_node'].bool()],
                               reshuffle_nodes[compact_g.ndata['inner_node'] == 0]])
     compact_g1 = dgl.node_subgraph(compact_g, reshuffle_nodes)
+    sorted_edges, index = th.sort(compact_g.edata[dgl.EID])
+    compact_g1 = dgl.edge_subgraph(compact_g1, index, preserve_nodes=True)
+
     compact_g1.ndata['orig_id'] = compact_g.ndata['orig_id'][reshuffle_nodes]
     compact_g1.ndata[dgl.NTYPE] = compact_g.ndata[dgl.NTYPE][reshuffle_nodes]
     compact_g1.ndata[dgl.NID] = compact_g.ndata[dgl.NID][reshuffle_nodes]
     compact_g1.ndata['inner_node'] = compact_g.ndata['inner_node'][reshuffle_nodes]
-    compact_g1.edata['orig_id'] = compact_g.edata['orig_id'][compact_g1.edata[dgl.EID]]
-    compact_g1.edata[dgl.ETYPE] = compact_g.edata[dgl.ETYPE][compact_g1.edata[dgl.EID]]
-    compact_g1.edata['inner_edge'] = compact_g.edata['inner_edge'][compact_g1.edata[dgl.EID]]
-    compact_g1.edata[dgl.EID] = compact_g.edata[dgl.EID][compact_g1.edata[dgl.EID]]
+    compact_g1.edata['orig_id'] = compact_g.edata['orig_id'][index]
+    compact_g1.edata[dgl.ETYPE] = compact_g.edata[dgl.ETYPE][index]
+    compact_g1.edata['inner_edge'] = compact_g.edata['inner_edge'][index]
+    compact_g1.edata[dgl.EID] = compact_g.edata[dgl.EID][index]
 
     part_dir = output_dir + '/part' + str(part_id)
     os.makedirs(part_dir, exist_ok=True)
