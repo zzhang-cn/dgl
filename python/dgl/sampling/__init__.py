@@ -8,3 +8,4 @@ gives a holistic explanation on how different components work together.
 from .randomwalks import *
 from .pinsage import *
 from .neighbor import *
+from .node2vec_randomwalk import *

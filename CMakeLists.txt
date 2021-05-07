@@ -162,7 +162,7 @@ endif(USE_CUDA)
 if(USE_CUDA)
   cuda_add_library(dgl SHARED ${DGL_SRC})
 else(USE_CUDA)
-  add_library(dgl SHARED ${DGL_SRC})
+  add_library(dgl SHARED ${DGL_SRC} src/graph/sampling/randomwalks/node2vec_impl.h)
 endif(USE_CUDA)
 
 # include directories
