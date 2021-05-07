@@ -37,6 +37,15 @@ void SegmentReduce(const std::string& op,
   });
 }
 
+template <int XPU, int bits>
+void SegmentGemm(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB) {
+  SWITCH_BITS(bits, DType, {
+    cuda::SegmentGemm<DType>(A, B, C, m, n, k, transA, transB);
+  });
+}
 
 template <int XPU, typename IdType, int bits>
 void ScatterAdd(NDArray feat,
@@ -58,6 +67,18 @@ void BackwardSegmentCmp(NDArray feat,
 }
 
 
+template void SegmentGemm<kDLGPU, 16>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
+template void SegmentGemm<kDLGPU, 32>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
+template void SegmentGemm<kDLGPU, 64>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
 template void SegmentReduce<kDLGPU, int32_t, 16>(
     const std::string& op,
     NDArray feat,

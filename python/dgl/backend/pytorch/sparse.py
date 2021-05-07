@@ -1,7 +1,7 @@
 import torch as th
 from distutils.version import LooseVersion
 from ...base import is_all, ALL
-from ...sparse import _gspmm, _gsddmm, _segment_reduce, _bwd_segment_cmp, _scatter_add
+from ...sparse import _gspmm, _gsddmm, _segment_reduce, _bwd_segment_cmp, _scatter_add, _segment_gemm
 
 if LooseVersion(th.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import custom_fwd, custom_bwd
@@ -24,7 +24,7 @@ else:
             return bwd(*args, **kwargs)
         return decorate_bwd
 
-__all__ = ['gspmm', 'gsddmm', 'edge_softmax', 'segment_reduce', 'scatter_add']
+__all__ = ['gspmm', 'gsddmm', 'edge_softmax', 'segment_reduce', 'scatter_add', 'segment_gemm']
 
 
 def _reduce_grad(grad, shape):
@@ -303,6 +303,26 @@ class ScatterAdd(th.autograd.Function):
         return dy[idx], None, None
 
 
+class SegmentGemm(th.autograd.Function):
+    @staticmethod
+    @custom_fwd(cast_inputs=th.float16)
+    def forward(ctx, A, B, m, n, k):
+        C = _segment_gemm(A, B, m, n, k)
+        ctx.save_for_backward(A, B, m, n, k)
+        return C
+        
+    @staticmethod
+    @custom_bwd
+    def backward(ctx, dC):
+        A, B, m, n, k = ctx.saved_tensors
+        dA, dB = None, None
+        if ctx.needs_input_grad[0]:
+            dA = _segment_gemm(dC, B, m, k, n, False, True)
+        if ctx.needs_input_grad[1]:
+            dB = _segment_gemm(A, dC, k, n, m, True, False)
+        return dA, dB, None, None, None
+
+
 def gspmm(gidx, op, reduce_op, lhs_data, rhs_data):
     return GSpMM.apply(gidx, op, reduce_op, lhs_data, rhs_data)
 
@@ -317,6 +337,11 @@ def edge_softmax(gidx, logits, eids=ALL, norm_by='dst'):
 
 def segment_reduce(op, x, offsets):
     return SegmentReduce.apply(op, x, offsets)
+
+
+def segment_gemm(A, B, n, m, p):
+    return SegmentGemm.apply(A, B, n, m, p)
+
 
 def scatter_add(x, idx, m):
     return ScatterAdd.apply(x, idx, m)

@@ -78,6 +78,15 @@ void SegmentReduce(const std::string& op,
                    NDArray arg);
 
 /*!
+ * \brief Segment GEMM.
+ */
+template <int XPU, int bits>
+void SegmentGemm(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
+
+/*!
  * \brief Scatter Add on first dimension.
  */
 template <int XPU, typename IdType, int bits>

@@ -40,6 +40,15 @@ void SegmentReduce(
   }
 }
 
+/* \brief Segment Gemm operator. */
+template <int XPU, int bits>
+void SegmentGemm(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB) {
+  LOG(FATAL) << "Not implemented yet";
+}
+
 /*! \brief Scatter Add.*/
 template <int XPU, typename IdType, int bits>
 void ScatterAdd(NDArray feat,
@@ -61,6 +70,18 @@ void BackwardSegmentCmp(
   });
 }
 
+template void SegmentGemm<kDLCPU, 16>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
+template void SegmentGemm<kDLCPU, 32>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
+template void SegmentGemm<kDLCPU, 64>(
+    NDArray A, NDArray B, NDArray C,
+    NDArray m, NDArray n, NDArray k,
+    bool transA, bool transB);
 template void SegmentReduce<kDLCPU, int32_t, 16>(
     const std::string &op,
     NDArray feat,

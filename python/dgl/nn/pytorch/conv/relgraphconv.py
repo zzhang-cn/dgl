@@ -8,6 +8,7 @@ from torch import nn
 from .... import function as fn
 from .. import utils
 from ....base import DGLError
+from ....backend import segment_gemm
 from .... import edge_subgraph
 
 class RelGraphConv(nn.Module):
@@ -224,6 +225,7 @@ class RelGraphConv(nn.Module):
         elif self.low_mem:
             # A more memory-friendly implementation.
             # Calculate msg @ W_r before put msg into edge.
+            """
             assert isinstance(etypes, list)
             h_t = th.split(h, etypes)
             msg = []
@@ -232,6 +234,12 @@ class RelGraphConv(nn.Module):
                     continue
                 msg.append(th.matmul(h_t[etype], weight[etype]))
             msg = th.cat(msg)
+            """
+            msg = segment_gemm(h.view(-1), weight.view(-1),
+                               th.tensor(etypes),
+                               th.tensor([self.out_feat] * self.num_rels),
+                               th.tensor([self.in_feat] * self.num_rels))
+            msg = msg.view(-1, self.out_feat)
         else:
             # Use batched matmult
             if isinstance(etypes, list):

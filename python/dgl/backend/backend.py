@@ -1552,8 +1552,14 @@ def segment_reduce(op, x, offsets):
     """
     pass
 
-def scatter_add(x, idx, m):
+def segment_gemm(A, B, m, n, k):
+    """Segment Gemm operator.
+    
+    TODO(zihao): docstring
+    """
+    pass
 
+def scatter_add(x, idx, m):
     """Scatter add (on first dimension) operator.
 
     Math: y[idx[i], *] += x[i, *]

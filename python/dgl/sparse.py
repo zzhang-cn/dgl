@@ -308,6 +308,22 @@ def _segment_reduce(op, feat, offsets):
     return out, arg
 
 
+def _segment_gemm(A, B, m_off, n_off, k_off, transA=False, transB=False):
+    r""" TODO(zihao)
+    """
+    m_off = F.astype(F.copy_to(m_off, F.cpu()), F.int64)
+    n_off = F.astype(F.copy_to(n_off, F.cpu()), F.int64)
+    k_off = F.astype(F.copy_to(k_off, F.cpu()), F.int64)
+    out_shp = F.as_scalar(F.reduce_sum(m_off * n_off))
+    dtype = F.dtype(A)
+    ctx = F.context(A)
+    C = F.zeros((out_shp,), dtype, ctx)
+    _CAPI_DGLKernelSegmentGemm(to_dgl_nd(A), to_dgl_nd(B), to_dgl_nd(C),
+                               to_dgl_nd(m_off), to_dgl_nd(n_off), to_dgl_nd(k_off),
+                               transA, transB)
+    return C
+
+
 def _scatter_add(x, idx, m):
     r""" Scatter add operator (on first dimension) implementation.
 
