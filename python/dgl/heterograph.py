@@ -4742,8 +4742,9 @@ class DGLHeteroGraph(object):
                 An optional apply function to further update the node features
                 after the message reduction. It must be a :ref:`apiudf`.
 
-        cross_reducer : str
-            Cross type reducer. One of ``"sum"``, ``"min"``, ``"max"``, ``"mean"``, ``"stack"``.
+        cross_reducer : str or callable function
+            Cross type reducer. One of ``"sum"``, ``"min"``, ``"max"``, ``"mean"``, ``"stack"``
+            or a callable function
         apply_node_func : callable, optional
             An optional apply function after the messages are reduced both
             type-wisely and across different types.
@@ -5914,8 +5915,8 @@ def reduce_dict_data(frames, reducer, order=None):
     ----------
     frames : list[dict[str, Tensor]]
         Input tensor dictionaries
-    reducer : str
-        One of "sum", "max", "min", "mean", "stack"
+    reducer : str or callable function
+        One of "sum", "max", "min", "mean", "stack" or a callable function
     order : list[Int], optional
         Merge order hint. Useful for "stack" reducer.
         If provided, each integer indicates the relative order
@@ -5932,7 +5933,9 @@ def reduce_dict_data(frames, reducer, order=None):
         # Directly return the only one input. Stack reducer requires
         # modifying tensor shape.
         return frames[0]
-    if reducer == 'stack':
+    if callable(reducer):
+        merger = reducer
+    elif reducer == 'stack':
         # Stack order does not matter. However, it must be consistent!
         if order:
             assert len(order) == len(frames)
