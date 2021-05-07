@@ -1,0 +1,39 @@
+#!/usr/bin/env groovy
+
+def init_git() {
+    sh 'rm -rf dgl'
+    sh 'git clone https://github.com/dmlc/dgl.git --recursive'
+    sh 'cd dgl'
+    sh 'git submodule update --recursive --init'
+    sh 'cd ..'
+}
+
+pipeline {
+    agent any
+    triggers {
+        cron('0 0 * * 0')
+    }
+    stages {
+        stage('Nightly Regression Test') {
+            agent {
+                docker {
+                    label 'linux-benchmark-node'
+                    image 'dgllib/dgl-ci-lint'
+                    alwaysPull true
+                }
+            }
+
+            steps {
+                // timeout(time: 720, unit: 'MINUTES') {
+                init_git()
+                sh "cp benchmark/* dgl/benchmarks/scripts/"
+                dir('dgl/benchmarks/scripts') {
+                    sh "python3 -m pip install boto3"
+                    sh "PYTHONUNBUFFERED=1 GIT_URL=https://github.com/dmlc/dgl.git GIT_BRANCH=master python3 run_reg_test.py --data-folder nightly"
+                }
+                // }
+            }
+
+        }
+    }
+}
