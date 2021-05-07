@@ -87,7 +87,7 @@ __all__ = []
 
 def _register_builtin_reduce_func():
     """Register builtin reduce functions"""
-    for reduce_op in ["max", "min", "sum", "mean"]:
+    for reduce_op in ["max", "min", "sum", "mean", "min_inf", "max_inf"]:
         builtin = _gen_reduce_builtin(reduce_op)
         setattr(sys.modules[__name__], reduce_op, builtin)
         __all__.append(reduce_op)

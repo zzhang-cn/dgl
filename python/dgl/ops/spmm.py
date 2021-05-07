@@ -58,12 +58,20 @@ def gspmm(g, op, reduce_op, lhs_data, rhs_data):
             new_rhs_shape = (rhs_shape[0],) + (1,) * rhs_pad_ndims + rhs_shape[1:]
             lhs_data = F.reshape(lhs_data, new_lhs_shape)
             rhs_data = F.reshape(rhs_data, new_rhs_shape)
+    # Replace min_inf and max_inf with min and max during computation
+    replace_inf = True
+    if reduce_op == 'min_inf':
+        reduce_op = 'min'
+        replace_inf = False
+    elif reduce_op == 'max_inf':
+        reduce_op = 'max'
+        replace_inf = False
     # With max and min reducers infinity will be returned for zero degree nodes
     ret = gspmm_internal(g._graph, op,
                          'sum' if reduce_op == 'mean' else reduce_op,
                          lhs_data, rhs_data)
     # Replace infinity with zero for isolated nodes when reducer is min/max
-    if reduce_op in ['min', 'max']:
+    if reduce_op in ['min', 'max'] and replace_inf:
         ret = F.replace_inf_with_zero(ret)
 
     # divide in degrees for mean reducer.
@@ -184,7 +192,7 @@ def _register_spmm_func():
     - Copy e plus reduction: copy_e_[]
     """
     for binary_op in ["add", "sub", "mul", "div", "copy_u", "copy_e"]:
-        for reduce_op in ["sum", "max", "min", "mean"]:
+        for reduce_op in ["sum", "max", "min", "mean", "min_inf", "max_inf"]:
             if binary_op.startswith("copy"):
                 func = _gen_copy_reduce_func(binary_op, reduce_op)
             else:
