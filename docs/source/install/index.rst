@@ -39,7 +39,7 @@ Download the source files from GitHub.
 
    git submodule update --init --recursive
 
-Linux
+Linux (for x86-64 and Arm64)
 `````
 
 Install the system packages for building the shared library. For Debian and Ubuntu
@@ -76,11 +76,12 @@ for the same purpose.
      cmake -DUSE_CUDA=ON ..
      make -j4
 
-Finally, install the Python binding.
+Finally, upgrade the python depedencies, then install Python binding.
 
 .. code:: bash
 
    cd ../python
+   pip3 install --user  numpy networkx scipy
    python setup.py install
 
 macOS
