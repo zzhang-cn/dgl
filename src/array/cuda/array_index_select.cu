@@ -5,23 +5,13 @@
  */
 #include <dgl/array.h>
 #include "../../runtime/cuda/cuda_common.h"
+#include "./array_index_select.cuh"
 #include "./utils.h"
 
 namespace dgl {
 using runtime::NDArray;
 namespace aten {
 namespace impl {
-
-template <typename DType, typename IdType>
-__global__ void _IndexSelectKernel(const DType* array, const IdType* index,
-                                   int64_t length, DType* out) {
-  int tx = blockIdx.x * blockDim.x + threadIdx.x;
-  int stride_x = gridDim.x * blockDim.x;
-  while (tx < length) {
-    out[tx] = array[index[tx]];
-    tx += stride_x;
-  }
-}
 
 template<DLDeviceType XPU, typename DType, typename IdType>
 NDArray IndexSelect(NDArray array, IdArray index) {
@@ -30,14 +20,33 @@ NDArray IndexSelect(NDArray array, IdArray index) {
   const IdType* idx_data = static_cast<IdType*>(index->data);
   const int64_t arr_len = array->shape[0];
   const int64_t len = index->shape[0];
-  NDArray ret = NDArray::Empty({len}, array->dtype, array->ctx);
+  int64_t num_feat = 1;
+  std::vector<int64_t> shape{len};
+  for (int d = 1; d < array->ndim; ++d) {
+    num_feat *= array->shape[d];
+    shape.emplace_back(array->shape[d]);
+  }
+
+  NDArray ret = NDArray::Empty(shape, array->dtype, array->ctx);
   if (len == 0)
     return ret;
   DType* ret_data = static_cast<DType*>(ret->data);
-  const int nt = cuda::FindNumThreads(len);
-  const int nb = (len + nt - 1) / nt;
-  CUDA_KERNEL_CALL(_IndexSelectKernel, nb, nt, 0, thr_entry->stream,
-      array_data, idx_data, len, ret_data);
+
+  if (num_feat == 1) {
+      const int nt = cuda::FindNumThreads(len);
+      const int nb = (len + nt - 1) / nt;
+      CUDA_KERNEL_CALL(IndexSelectSingleKernel, nb, nt, 0, thr_entry->stream,
+          array_data, idx_data, len, ret_data);
+  } else {
+      dim3 block(256, 1);
+      while (static_cast<int64_t>(block.x) >= 2*num_feat) {
+          block.x /= 2;
+          block.y *= 2;
+      }
+      const dim3 grid((len+block.y-1)/block.y);
+      CUDA_KERNEL_CALL(IndexSelectMultiKernel, grid, block, 0, thr_entry->stream,
+          array_data, num_feat, idx_data, len, ret_data);
+  }
   return ret;
 }
 

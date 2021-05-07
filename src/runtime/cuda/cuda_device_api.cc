@@ -190,10 +190,10 @@ class CUDADeviceAPI final : public DeviceAPI {
                       size_t size,
                       cudaMemcpyKind kind,
                       cudaStream_t stream) {
-    if (stream != 0) {
-      CUDA_CALL(cudaMemcpyAsync(to, from, size, kind, stream));
-    } else {
-      CUDA_CALL(cudaMemcpy(to, from, size, kind));
+    CUDA_CALL(cudaMemcpyAsync(to, from, size, kind, stream));
+    if (stream == 0 && kind == cudaMemcpyDeviceToHost) {
+      // only wait for the copy, when it's on the default stream, and it's to host memory
+      CUDA_CALL(cudaStreamSynchronize(stream));
     }
   }
 };
