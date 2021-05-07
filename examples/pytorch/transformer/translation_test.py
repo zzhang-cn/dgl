@@ -14,7 +14,7 @@ if __name__ == '__main__':
     argparser.add_argument('--N', default=6, type=int, help='num of layers')
     argparser.add_argument('--dataset', default='multi30k', help='dataset')
     argparser.add_argument('--batch', default=64, help='batch size')
-    argparser.add_argument('--universal', action='store_true', help='use universal transformer') 
+    argparser.add_argument('--universal', action='store_true', help='use universal transformer')
     argparser.add_argument('--checkpoint', type=int, help='checkpoint: you must specify it')
     argparser.add_argument('--print', action='store_true', help='whether to print translated text')
     args = argparser.parse_args()

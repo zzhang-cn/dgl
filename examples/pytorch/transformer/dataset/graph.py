@@ -21,9 +21,9 @@ class GraphPool:
         self.n, self.m = n, m
         g_pool = [[dgl.graph(([], [])) for _ in range(m)] for _ in range(n)]
         num_edges = {
-            'ee': np.zeros((n, n)).astype(int),
+            'ee': np.zeros((n, m)).astype(int),
             'ed': np.zeros((n, m)).astype(int),
-            'dd': np.zeros((m, m)).astype(int)
+            'dd': np.zeros((n, m)).astype(int)
         }
         for i, j in itertools.product(range(n), range(m)):
             src_length = i + 1
