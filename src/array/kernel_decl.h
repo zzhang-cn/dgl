@@ -30,6 +30,20 @@ void SpMMCsr(const std::string& op, const std::string& reduce,
              std::vector<NDArray> out_aux);
 
 /*!
+ * \brief Generalized Sparse Matrix Dense Matrix Multiplication on Csr format
+ with heterograph support.
+ */
+template <int XPU, typename IdType, int bits>
+void SpMMCsrHetero(const std::string& op, const std::string& reduce,
+             const BcastOff& bcast,
+             const std::vector<CSRMatrix>& csr,
+             std::vector<NDArray> ufeat,
+             NDArray efeat,
+             std::vector<NDArray> out,
+             std::vector<NDArray> out_aux,
+             const std::vector<dgl_type_t> ufeat_eid,
+             const std::vector<dgl_type_t> out_eid);
+/*!
  * \brief Generalized Sparse Matrix Dense Matrix Multiplication on Coo format.
  */
 template <int XPU, typename IdType, int bits>
@@ -53,6 +67,21 @@ void SDDMMCsr(const std::string& op,
               NDArray out,
               int lhs_target,
               int rhs_target);
+/*!
+ * \brief Generalized Sampled Dense-Dense Matrix Multiplication on Csr 
+ format with heterograph support.
+  */
+template <int XPU, typename IdType, int bits>
+void SDDMMCsrHetero(const std::string& op,
+              const BcastOff& bcast,
+              const std::vector<CSRMatrix>& vec_csr,
+              std::vector<NDArray> vec_lhs,
+              std::vector<NDArray> vec_rhs,
+              std::vector<NDArray> vec_out,
+              int lhs_target,
+              int rhs_target,
+              const std::vector<dgl_type_t> ufeat_eid,
+              const std::vector<dgl_type_t> out_eid);
 
 /*!
  * \brief Generalized Sampled Dense-Dense Matrix Multiplication on Coo format.

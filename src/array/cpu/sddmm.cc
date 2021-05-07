@@ -74,6 +74,37 @@ void SDDMMCsr(const std::string& op,
   });
 }
 
+/*! \brief Generalized SDDMM on Csr format with Heterograph support. */
+template <int XPU, typename IdType, int bits>
+void SDDMMCsrHetero(const std::string& op,
+              const BcastOff& bcast,
+              const std::vector<CSRMatrix>& vec_csr,
+              std::vector<NDArray> vec_lhs,
+              std::vector<NDArray> vec_rhs,
+              std::vector<NDArray> vec_out,
+              int lhs_target,
+              int rhs_target,
+              const std::vector<dgl_type_t> in_eid,
+              const std::vector<dgl_type_t> out_eid) {
+  SWITCH_BITS(bits, DType, {
+    SWITCH_OP(op, Op, {
+      SWITCH_TARGET(lhs_target, rhs_target, LhsTarget, RhsTarget, {
+        /* Call  SDDMM for each relation type */
+        for (dgl_type_t etype = 0; etype < in_eid.size(); ++etype) {
+          const dgl_type_t src_id = in_eid[etype];
+          const dgl_type_t dst_id = out_eid[etype];
+          CSRMatrix csr = vec_csr[etype];
+          NDArray lhs = vec_lhs[src_id];
+          NDArray rhs = vec_rhs[src_id];
+          NDArray out = vec_out[dst_id];
+          cpu::SDDMMCsr<IdType, DType, Op, LhsTarget, RhsTarget>(bcast, csr, lhs, rhs, out);
+        }
+      });
+    });
+  });
+}
+
+
 template void SDDMMCsr<kDLCPU, int32_t, 16>(
     const std::string& op, const BcastOff& bcast, const CSRMatrix& csr,
     NDArray lhs, NDArray rhs, NDArray out,
@@ -99,6 +130,48 @@ template void SDDMMCsr<kDLCPU, int64_t, 64>(
     NDArray lhs, NDArray rhs, NDArray out,
     int lhs_target, int rhs_target);
 
+template void SDDMMCsrHetero<kDLCPU, int32_t, 16>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
+template void SDDMMCsrHetero<kDLCPU, int64_t, 16>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
+template void SDDMMCsrHetero<kDLCPU, int32_t, 32>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
+template void SDDMMCsrHetero<kDLCPU, int64_t, 32>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
+template void SDDMMCsrHetero<kDLCPU, int32_t, 64>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
+template void SDDMMCsrHetero<kDLCPU, int64_t, 64>(
+    const std::string& op, const BcastOff& bcast, 
+    const std::vector<CSRMatrix>& vec_csr,
+    std::vector<NDArray>  lhs, std::vector<NDArray> rhs, 
+    std::vector<NDArray> out, int lhs_target, int rhs_target, 
+    const std::vector<dgl_type_t> in_eid, 
+    const std::vector<dgl_type_t> out_eid);
 
 /*! \brief Generalized SDDMM on Coo format. */
 template <int XPU, typename IdType, int bits>
