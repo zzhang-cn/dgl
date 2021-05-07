@@ -40,5 +40,6 @@ pushd $GCN_EXAMPLE_DIR> /dev/null
 
 python3 pagerank.py || fail "run pagerank.py on $1"
 python3 gcn/gcn.py --dataset cora --gpu $dev || fail "run gcn/gcn.py on $1"
+python3 lda/lda_model.py || fail "run lda/lda_model.py on $1"
 
 popd > /dev/null
