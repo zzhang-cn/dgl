@@ -63,6 +63,10 @@ class CPUDeviceAPI final : public DeviceAPI {
   void StreamSync(DGLContext ctx, DGLStreamHandle stream) final {
   }
 
+  DGLStreamHandle GetStream(DGLContext ctx) final {
+    return nullptr;
+  }
+
   void* AllocWorkspace(DGLContext ctx, size_t size, DGLType type_hint) final;
   void FreeWorkspace(DGLContext ctx, void* data) final;
 

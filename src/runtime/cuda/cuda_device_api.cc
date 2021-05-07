@@ -94,13 +94,21 @@ class CUDADeviceAPI final : public DeviceAPI {
     CHECK_EQ(256 % alignment, 0U)
         << "CUDA space is aligned at 256 bytes";
     void *ret;
+    #if CUDART_VERSION < 11020
     CUDA_CALL(cudaMalloc(&ret, nbytes));
+    #else
+    CUDA_CALL(cudaMallocAsync(&ret, nbytes, static_cast<cudaStream_t>(GetStream(ctx))));
+    #endif
     return ret;
   }
 
   void FreeDataSpace(DGLContext ctx, void* ptr) final {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
+    #if CUDART_VERSION < 11020
     CUDA_CALL(cudaFree(ptr));
+    #else
+    CUDA_CALL(cudaFreeAsync(ptr, static_cast<cudaStream_t>(GetStream(ctx))));
+    #endif
   }
 
   void CopyDataFromTo(const void* from,
@@ -166,8 +174,15 @@ class CUDADeviceAPI final : public DeviceAPI {
   }
 
   void SetStream(DGLContext ctx, DGLStreamHandle stream) final {
+    // sync the new and old stream to ensure we don't cause a race condition
+    SyncStreamFromTo(ctx, GetStream(ctx), stream);
+
     CUDAThreadEntry::ThreadLocal()
         ->stream = static_cast<cudaStream_t>(stream);
+  }
+
+  DGLStreamHandle GetStream(DGLContext ctx) final {
+    return CUDAThreadEntry::ThreadLocal()->stream;
   }
 
   void* AllocWorkspace(DGLContext ctx, size_t size, DGLType type_hint) final {
@@ -190,10 +205,10 @@ class CUDADeviceAPI final : public DeviceAPI {
                       size_t size,
                       cudaMemcpyKind kind,
                       cudaStream_t stream) {
-    if (stream != 0) {
-      CUDA_CALL(cudaMemcpyAsync(to, from, size, kind, stream));
-    } else {
-      CUDA_CALL(cudaMemcpy(to, from, size, kind));
+    CUDA_CALL(cudaMemcpyAsync(to, from, size, kind, stream));
+    if (kind == cudaMemcpyDeviceToHost) {
+      // sync before we try to access it from the host
+      CUDA_CALL(cudaStreamSynchronize(stream));
     }
   }
 };

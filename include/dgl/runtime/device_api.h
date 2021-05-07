@@ -125,6 +125,14 @@ class DeviceAPI {
    * \param stream The stream to be set.
    */
   virtual void SetStream(DGLContext ctx, DGLStreamHandle stream) {}
+  /**
+   * \brief Get the underlying stream.
+   *
+   * \param ctx The context to get the stream of.
+   *
+   * \return The stream.
+   */
+  virtual DGLStreamHandle GetStream(DGLContext ctx) = 0;
   /*!
    * \brief Synchronize 2 streams of execution.
    *
