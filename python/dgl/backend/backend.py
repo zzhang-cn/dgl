@@ -1574,6 +1574,88 @@ def scatter_add(x, idx, m):
     """
     pass
 
+def csrmm(A, A_weights, B, B_weights, num_vtypes):
+    """Compute weighted adjacency matrix multiplication.
+
+    Notes
+    -----
+    Both A and B must allow creation of CSR representations, and must be simple graphs.
+
+    The output unit graph has no format restriction.
+
+    Parameters
+    ----------
+    A : HeteroGraphIndex
+        The unit graph as left operand.
+    A_weights : Tensor
+        The edge weights of A.  Must be a 1D vector.
+    B : HeteroGraphIndex
+        The unit graph as right operand.
+    B_weights : Tensor
+        The edge weights of B.  Must be a 1D vector.
+    num_vtypes : int
+        The number of node types of the output graph.  Must be either 1 or 2.
+
+    Returns
+    -------
+    HeteroGraphIndex
+        The output unit graph.
+    Tensor
+        The output edge weights.
+    """
+    pass
+
+def csrsum(gidxs, weights):
+    """Compute weighted adjacency matrix summation.
+
+    Notes
+    -----
+    All unit graphs must allow creation of CSR representations, and must be simple graphs.
+
+    The output unit graph has no format restriction.
+
+    Parameters
+    ----------
+    gidxs : list[HeteroGraphIndex]
+        The unit graphs.
+    weights : list[Tensor]
+        The edge weights of each graph.  Must be 1D vectors.
+
+    Returns
+    -------
+    HeteroGraphIndex
+        The output unit graph.
+    Tensor
+        The output edge weights.
+    """
+    pass
+
+def csrmask(A, A_weights, B):
+    """Retrieve the values in the weighted adjacency matrix of graph :attr:`A` at the
+    non-zero positions of graph :attr:`B`'s adjacency matrix.
+
+    In scipy, this is equivalent to ``A[B != 0]``.
+
+    Notes
+    -----
+    Both A and B must allow creation of CSR representations, and must be simple graphs.
+
+    Parameters
+    ----------
+    A : HeteroGraphIndex
+        The unit graph as left operand.
+    A_weights : Tensor
+        The edge weights of A.  Must be a 1D vector.
+    B : HeteroGraphIndex
+        The unit graph as right operand.
+
+    Returns
+    -------
+    Tensor
+        The output tensor.
+    """
+    pass
+
 
 ###############################################################################
 # Other interfaces

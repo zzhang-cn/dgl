@@ -366,7 +366,7 @@ def _bwd_segment_cmp(feat, arg, m):
                                  to_dgl_nd_for_write(out))
     return out
 
-def csrmm(A, A_weights, B, B_weights, num_vtypes):
+def _csrmm(A, A_weights, B, B_weights, num_vtypes):
     """Return a graph whose adjacency matrix is the sparse matrix multiplication
     of those of two given graphs.
 
@@ -397,7 +397,7 @@ def csrmm(A, A_weights, B, B_weights, num_vtypes):
         A, F.to_dgl_nd(A_weights), B, F.to_dgl_nd(B_weights), num_vtypes)
     return C, F.from_dgl_nd(C_weights)
 
-def csrsum(As, A_weights):
+def _csrsum(As, A_weights):
     """Return a graph whose adjacency matrix is the sparse matrix summation
     of the given list of graphs.
 
@@ -421,7 +421,7 @@ def csrsum(As, A_weights):
     C, C_weights = _CAPI_DGLCSRSum(As, [F.to_dgl_nd(w) for w in A_weights])
     return C, F.from_dgl_nd(C_weights)
 
-def csrmask(A, A_weights, B):
+def _csrmask(A, A_weights, B):
     """Return the weights of A at the locations identical to the sparsity pattern
     of B.
 

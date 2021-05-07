@@ -74,6 +74,8 @@ Operators for generating new graphs by manipulating the structure of the existin
     line_graph
     khop_graph
     metapath_reachable_graph
+    adj_product_graph
+    adj_sum_graph
 
 .. _api-batch:
 

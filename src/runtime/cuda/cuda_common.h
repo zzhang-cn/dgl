@@ -155,6 +155,13 @@ struct cusparse_idtype<int64_t> {
 };
 #endif
 
+inline void cusparse_create_descr(cusparseMatDescr_t* descr) {
+  CUSPARSE_CALL(cusparseCreateMatDescr(descr));
+  CUSPARSE_CALL(cusparseSetMatDiagType(*descr, CUSPARSE_DIAG_TYPE_NON_UNIT));
+  CUSPARSE_CALL(cusparseSetMatIndexBase(*descr, CUSPARSE_INDEX_BASE_ZERO));
+  CUSPARSE_CALL(cusparseSetMatType(*descr, CUSPARSE_MATRIX_TYPE_GENERAL));
+}
+
 /*! \brief Thread local workspace */
 class CUDAThreadEntry {
  public:

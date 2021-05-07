@@ -127,7 +127,9 @@ std::pair<CSRMatrix, NDArray> CSRMM(
       B_indptr, B_indices, B_eids, B_data,
       C_indptr_data, C_indices_data, C_weights_data, M);
 
-  return {CSRMatrix(M, P, C_indptr, C_indices), C_weights};
+  return {
+      CSRMatrix(M, P, C_indptr, C_indices, NullArray(C_indptr->dtype, C_indptr->ctx)),
+      C_weights};
 }
 
 template std::pair<CSRMatrix, NDArray> CSRMM<kDLCPU, int32_t, float>(

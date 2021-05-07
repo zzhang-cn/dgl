@@ -39,7 +39,7 @@ void CollectDataFromSorted(const IdType *indices_data, const IdType *data,
 
 template <DLDeviceType XPU, typename IdType, typename DType>
 NDArray CSRGetData(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, DType filler) {
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, DType filler) {
   const int64_t rowlen = rows->shape[0];
   const int64_t collen = cols->shape[0];
 
@@ -56,7 +56,6 @@ NDArray CSRGetData(
   const IdType* data = CSRHasData(csr)? static_cast<IdType*>(csr.data->data) : nullptr;
 
   const int64_t retlen = std::max(rowlen, collen);
-  bool return_eids = IsNullArray(weights);
   const DType* weight_data = return_eids ? nullptr : weights.Ptr<DType>();
   if (return_eids)
     BUG_IF_FAIL(DLDataTypeTraits<DType>::dtype == rows->dtype) <<
@@ -105,19 +104,19 @@ NDArray CSRGetData(
 }
 
 template NDArray CSRGetData<kDLCPU, int32_t, float>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, float filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, float filler);
 template NDArray CSRGetData<kDLCPU, int64_t, float>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, float filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, float filler);
 template NDArray CSRGetData<kDLCPU, int32_t, double>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, double filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, double filler);
 template NDArray CSRGetData<kDLCPU, int64_t, double>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, double filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, double filler);
 
 // For CSRGetData<XPU, IdType>(CSRMatrix, NDArray, NDArray)
 template NDArray CSRGetData<kDLCPU, int32_t, int32_t>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, int32_t filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, int32_t filler);
 template NDArray CSRGetData<kDLCPU, int64_t, int64_t>(
-    CSRMatrix csr, NDArray rows, NDArray cols, NDArray weights, int64_t filler);
+    CSRMatrix csr, NDArray rows, NDArray cols, bool return_eids, NDArray weights, int64_t filler);
 
 }  // namespace impl
 }  // namespace aten

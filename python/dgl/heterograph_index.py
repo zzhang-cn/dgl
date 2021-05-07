@@ -8,6 +8,7 @@ import scipy
 from ._ffi.object import register_object, ObjectBase
 from ._ffi.function import _init_api
 from .base import DGLError, dgl_warning
+from .graph_index import from_coo
 from . import backend as F
 from . import utils
 
@@ -649,6 +650,60 @@ class HeteroGraphIndex(ObjectBase):
         else:
             raise Exception("unknown format")
 
+    def adjacency_matrix_tensors(self, etype, transpose, fmt):
+        """Return the adjacency matrix as a triplet of tensors.
+
+        By default, a row of returned adjacency matrix represents the destination
+        of an edge and the column represents the source.
+
+        When transpose is True, a row represents the source and a column represents
+        a destination.
+
+        Parameters
+        ----------
+        etype : int
+            Edge type
+        transpose : bool
+            A flag to transpose the returned adjacency matrix.
+        fmt : str
+            Indicates the format of returned adjacency matrix.
+
+        Returns
+        -------
+        tuple[int, int, Tensor, Tensor] or tuple[int, int, Tensor, Tensor, Tensor]
+            The number of rows and columns, followed by the adjacency matrix tensors
+            whose data type and device are the same as those of the graph.
+
+            If :attr:`fmt` is ``'coo'``, then the triplet will be
+            the row array and column array of the COO representation.
+
+            If :attr:`fmt` is ``'csr'``, then the triplet will be
+            the index pointer array (``indptr``), indices array, and data array
+            of the CSR representation.  The data array will contain the edge ID for
+            each entry of the adjacency matrix.  If the data array is empty, then it is
+            equivalent to a consecutive array from zero to the number of edges minus one.
+        """
+        if not isinstance(transpose, bool):
+            raise DGLError('Expect bool value for "transpose" arg,'
+                           ' but got %s.' % (type(transpose)))
+
+        rst = _CAPI_DGLHeteroGetAdj(self, int(etype), transpose, fmt)
+        srctype, dsttype = self.metagraph.find_edge(etype)
+        nrows = self.number_of_nodes(srctype) if transpose else self.number_of_nodes(dsttype)
+        ncols = self.number_of_nodes(dsttype) if transpose else self.number_of_nodes(srctype)
+        nnz = self.number_of_edges(etype)
+        if fmt == "csr":
+            indptr = F.from_dgl_nd(rst(0))
+            indices = F.from_dgl_nd(rst(1))
+            data = F.from_dgl_nd(rst(2))
+            return nrows, ncols, indptr, indices, data
+        elif fmt == 'coo':
+            idx = F.from_dgl_nd(rst(0))
+            row, col = F.reshape(idx, (2, nnz))
+            return nrows, ncols, row, col
+        else:
+            raise ValueError("unknown format")
+
     def adjacency_matrix_scipy(self, etype, transpose, fmt, return_edge_ids=None):
         """Return the scipy adjacency matrix representation of this graph.
 
@@ -674,10 +729,6 @@ class HeteroGraphIndex(ObjectBase):
         scipy.sparse.spmatrix
             The scipy representation of adjacency matrix.
         """
-        if not isinstance(transpose, bool):
-            raise DGLError('Expect bool value for "transpose" arg,'
-                           ' but got %s.' % (type(transpose)))
-
         if return_edge_ids is None:
             dgl_warning(
                 "Adjacency matrix by default currently returns edge IDs."
@@ -687,26 +738,30 @@ class HeteroGraphIndex(ObjectBase):
                 FutureWarning)
             return_edge_ids = True
 
-        rst = _CAPI_DGLHeteroGetAdj(self, int(etype), transpose, fmt)
-        srctype, dsttype = self.metagraph.find_edge(etype)
-        nrows = self.number_of_nodes(srctype) if transpose else self.number_of_nodes(dsttype)
-        ncols = self.number_of_nodes(dsttype) if transpose else self.number_of_nodes(srctype)
-        nnz = self.number_of_edges(etype)
-        if fmt == "csr":
-            indptr = utils.toindex(rst(0), self.dtype).tonumpy()
-            indices = utils.toindex(rst(1), self.dtype).tonumpy()
-            data = utils.toindex(rst(2)).tonumpy() if return_edge_ids else np.ones_like(indices)
+        if fmt == 'csr':
+            nrows, ncols, indptr, indices, data = \
+                self.adjacency_matrix_tensors(etype, transpose, fmt)
+            indptr = F.asnumpy(indptr)
+            indices = F.asnumpy(indices)
+            data = F.asnumpy(data)
+
             # Check if edge ID is omitted
             if return_edge_ids and data.shape[0] == 0:
-                data = np.arange(nnz)
+                data = np.arange(self.number_of_edges(etype))
+            else:
+                data = np.ones_like(indices)
+
             return scipy.sparse.csr_matrix((data, indices, indptr), shape=(nrows, ncols))
         elif fmt == 'coo':
-            idx = utils.toindex(rst(0), self.dtype).tonumpy()
-            row, col = np.reshape(idx, (2, nnz))
-            data = np.arange(0, nnz) if return_edge_ids else np.ones_like(row)
+            nrows, ncols, row, col = \
+                self.adjacency_matrix_tensors(etype, transpose, fmt)
+            row = F.asnumpy(row)
+            col = F.asnumpy(col)
+            data = np.arange(self.number_of_edges(etype)) if return_edge_ids \
+                   else np.ones_like(row)
             return scipy.sparse.coo_matrix((data, (row, col)), shape=(nrows, ncols))
         else:
-            raise Exception("unknown format")
+            raise ValueError("unknown format")
 
     def incidence_matrix(self, etype, typestr, ctx):
         """Return the incidence matrix representation of this graph.
@@ -971,6 +1026,46 @@ class HeteroSubgraphIndex(ObjectBase):
 #################################################################
 # Creators
 #################################################################
+
+def create_metagraph_index(ntypes, canonical_etypes):
+    """Return a GraphIndex instance for a metagraph given the node types and canonical
+    edge types.
+
+    This function will reorder the node types and canonical edge types.
+
+    Parameters
+    ----------
+    ntypes : Iterable[str]
+        The node types.
+    canonical_etypes : Iterable[tuple[str, str, str]]
+        The canonical edge types.
+
+    Returns
+    -------
+    GraphIndex
+        The index object for metagraph.
+    list[str]
+        The reordered node types for each node in the metagraph.
+    list[str]
+        The reordered edge types for each edge in the metagraph.
+    list[tuple[str, str, str]]
+        The reordered canonical edge types for each edge in the metagraph.
+    """
+    # Sort the ntypes and relation tuples to have a deterministic order for the same set
+    # of type names.
+    ntypes = list(sorted(ntypes))
+    relations = list(sorted(canonical_etypes))
+    ntype_dict = {ntype: i for i, ntype in enumerate(ntypes)}
+    meta_edges_src = []
+    meta_edges_dst = []
+    etypes = []
+    for srctype, etype, dsttype in relations:
+        meta_edges_src.append(ntype_dict[srctype])
+        meta_edges_dst.append(ntype_dict[dsttype])
+        etypes.append(etype)
+    # metagraph is DGLGraph, currently still using int64 as index dtype
+    metagraph = from_coo(len(ntypes), meta_edges_src, meta_edges_dst, True)
+    return metagraph, ntypes, etypes, relations
 
 def create_unitgraph_from_coo(num_ntypes, num_src, num_dst, row, col,
                               formats, row_sorted=False, col_sorted=False):

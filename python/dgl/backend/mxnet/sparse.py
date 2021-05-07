@@ -2,10 +2,13 @@ import mxnet as mx
 import numpy as np
 from mxnet import nd
 from ...sparse import _gspmm, _gsddmm, _segment_reduce, _bwd_segment_cmp, _scatter_add
+from ...sparse import _csrmm, _csrsum, _csrmask
 from ...base import dgl_warning, is_all, ALL
 from .tensor import asnumpy, copy_to, zerocopy_from_numpy, context, to_backend_ctx
+from ...heterograph_index import create_unitgraph_from_csr
 
-__all__ = ['gspmm', 'gsddmm', 'edge_softmax', 'segment_reduce', 'scatter_add']
+__all__ = ['gspmm', 'gsddmm', 'edge_softmax', 'segment_reduce', 'scatter_add',
+           'csrmm', 'csrsum', 'csrmask']
 
 
 def _scatter_nd(index, src, n_rows):
@@ -379,3 +382,88 @@ class ScatterAdd(mx.autograd.Function):
 def scatter_add(x, idx, m):
     scatter_add_op = ScatterAdd(idx, m)
     return scatter_add_op(x)
+
+
+class CSRMM(mx.autograd.Function):
+    def __init__(self, gidxA, gidxB, num_vtypes):
+        super().__init__()
+        self.gidxA = gidxA
+        self.gidxB = gidxB
+        self.num_vtypes = num_vtypes
+
+    def forward(self, A_weights, B_weights):
+        gidxC, C_weights = _csrmm(self.gidxA, A_weights, self.gidxB, B_weights, self.num_vtypes)
+        nrows, ncols, C_indptr, C_indices, C_eids = gidxC.adjacency_matrix_tensors(0, True, 'csr')
+        # Note: the returned C_indptr, C_indices and C_eids tensors MUST be the same
+        # as the underlying tensors of the created graph gidxC.
+        self.backward_cache = gidxC
+        self.save_for_backward(A_weights, B_weights)
+        nrows = nd.array([nrows], dtype='int64')
+        ncols = nd.array([ncols], dtype='int64')
+        return nrows, ncols, C_indptr, C_indices, C_eids, C_weights
+
+    def backward(self, dnrows, dncols, dC_indptr, dC_indices, dC_eids, dC_weights):
+        # Only the last argument is meaningful.
+        gidxC = self.backward_cache
+        A_weights, B_weights = self.saved_tensors
+        dgidxA, dA_weights = _csrmm(
+            gidxC, dC_weights, self.gidxB.reverse(), B_weights, self.gidxA.number_of_ntypes())
+        dgidxB, dB_weights = _csrmm(
+            self.gidxA.reverse(), A_weights, gidxC, dC_weights, self.gidxB.number_of_ntypes())
+        dA_weights = _csrmask(dgidxA, dA_weights, self.gidxA)
+        dB_weights = _csrmask(dgidxB, dB_weights, self.gidxB)
+        return dA_weights, dB_weights
+
+def csrmm(gidxA, A_weights, gidxB, B_weights, num_vtypes):
+    op = CSRMM(gidxA, gidxB, num_vtypes)
+    nrows, ncols, C_indptr, C_indices, C_eids, C_weights = op(A_weights, B_weights)
+    gidxC = create_unitgraph_from_csr(
+        num_vtypes, nrows.asscalar(), ncols.asscalar(), C_indptr, C_indices, C_eids,
+        ["coo", "csr", "csc"])
+    return gidxC, C_weights
+
+class CSRSum(mx.autograd.Function):
+    def __init__(self, gidxs):
+        super().__init__()
+        self.gidxs = gidxs
+
+    def forward(self, *weights):
+        gidxC, C_weights = _csrsum(self.gidxs, weights)
+        nrows, ncols, C_indptr, C_indices, C_eids = gidxC.adjacency_matrix_tensors(
+            0, True, 'csr')
+        # Note: the returned C_indptr, C_indices and C_eids tensors MUST be the same
+        # as the underlying tensors of the created graph gidxC.
+        self.backward_cache = gidxC
+        nrows = nd.array([nrows], dtype='int64')
+        ncols = nd.array([ncols], dtype='int64')
+        return nrows, ncols, C_indptr, C_indices, C_eids, C_weights
+
+    def backward(self, dnrows, dncols, dC_indptr, dC_indices, dC_eids, dC_weights):
+        # Only the last argument is meaningful.
+        gidxC = self.backward_cache
+        return tuple(csrmask(gidxC, dC_weights, gidx) for gidx in self.gidxs)
+
+def csrsum(gidxs, weights):
+    op = CSRSum(gidxs)
+    nrows, ncols, C_indptr, C_indices, C_eids, C_weights = op(*weights)
+    num_vtypes = gidxs[0].number_of_ntypes()
+    gidxC = create_unitgraph_from_csr(
+        num_vtypes, nrows.asscalar(), ncols.asscalar(), C_indptr, C_indices, C_eids,
+        ["coo", "csr", "csc"])
+    return gidxC, C_weights
+
+class CSRMask(mx.autograd.Function):
+    def __init__(self, gidxA, gidxB):
+        super().__init__()
+        self.gidxA = gidxA
+        self.gidxB = gidxB
+
+    def forward(self, A_weights):
+        return _csrmask(self.gidxA, A_weights, self.gidxB)
+
+    def backward(self, dB_weights):
+        return _csrmask(self.gidxB, dB_weights, self.gidxA)
+
+def csrmask(gidxA, A_weights, gidxB):
+    op = CSRMask(gidxA, gidxB)
+    return op(A_weights)
