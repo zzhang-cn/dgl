@@ -920,15 +920,17 @@ def reverse(g, copy_ndata=True, copy_edata=False, *, share_ndata=None, share_eda
     # handle ndata
     if copy_ndata:
         # for each ntype
-        for ntype in g.ntypes:
-            new_g.nodes[ntype].data.update(g.nodes[ntype].data)
+        node_frames = utils.extract_node_subframes(g, None)
+        utils.set_new_frames(new_g, node_frames=node_frames)
 
     # handle edata
     if copy_edata:
         # for each etype
-        for utype, etype, vtype in g.canonical_etypes:
-            new_g.edges[vtype, etype, utype].data.update(
-                g.edges[utype, etype, vtype].data)
+        for i in range(len(g.canonical_etypes)):
+            utype, etype, vtype = g.canonical_etypes[i]
+            assert (vtype, etype, utype) == new_g.canonical_etypes[i]
+        edge_frames = utils.extract_edge_subframes(g, None)
+        utils.set_new_frames(new_g, edge_frames=edge_frames)
 
     return new_g
 
