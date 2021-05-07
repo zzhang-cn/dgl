@@ -83,7 +83,7 @@ class MovieLens(object):
         Dataset name. Could be "ml-100k", "ml-1m", "ml-10m"
     device : torch.device
         Device context
-    mix_cpu_gpu : boo, optional
+    mix_cpu_gpu : bool, optional
         If true, the ``user_feature`` attribute is stored in CPU
     use_one_hot_fea : bool, optional
         If true, the ``user_feature`` attribute is None, representing an one-hot identity
