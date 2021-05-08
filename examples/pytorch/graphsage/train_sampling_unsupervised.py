@@ -12,97 +12,10 @@ import argparse
 from dgl.data import RedditDataset
 from torch.nn.parallel import DistributedDataParallel
 import tqdm
-import sklearn.linear_model as lm
-import sklearn.metrics as skm
 
 from utils import thread_wrapped_func
-
-class NegativeSampler(object):
-    def __init__(self, g, k, neg_share=False):
-        self.weights = g.in_degrees().float() ** 0.75
-        self.k = k
-        self.neg_share = neg_share
-
-    def __call__(self, g, eids):
-        src, _ = g.find_edges(eids)
-        n = len(src)
-        if self.neg_share and n % self.k == 0:
-            dst = self.weights.multinomial(n, replacement=True)
-            dst = dst.view(-1, 1, self.k).expand(-1, self.k, -1).flatten()
-        else:
-            dst = self.weights.multinomial(n*self.k, replacement=True)
-        src = src.repeat_interleave(self.k)
-        return src, dst
-
-class SAGE(nn.Module):
-    def __init__(self,
-                 in_feats,
-                 n_hidden,
-                 n_classes,
-                 n_layers,
-                 activation,
-                 dropout):
-        super().__init__()
-        self.n_layers = n_layers
-        self.n_hidden = n_hidden
-        self.n_classes = n_classes
-        self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
-        for i in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
-        self.dropout = nn.Dropout(dropout)
-        self.activation = activation
-
-    def forward(self, blocks, x):
-        h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-                h = self.dropout(h)
-        return h
-
-    def inference(self, g, x, device):
-        """
-        Inference with the GraphSAGE model on full neighbors (i.e. without neighbor sampling).
-        g : the entire graph.
-        x : the input of entire node set.
-
-        The inference code is written in a fashion that it could handle any number of nodes and
-        layers.
-        """
-        # During inference with sampling, multi-layer blocks are very inefficient because
-        # lots of computations in the first few layers are repeated.
-        # Therefore, we compute the representation of all nodes layer by layer.  The nodes
-        # on each layer are of course splitted in batches.
-        # TODO: can we standardize this?
-        for l, layer in enumerate(self.layers):
-            y = th.zeros(g.num_nodes(), self.n_hidden if l != len(self.layers) - 1 else self.n_classes)
-
-            sampler = dgl.dataloading.MultiLayerFullNeighborSampler(1)
-            dataloader = dgl.dataloading.NodeDataLoader(
-                g,
-                th.arange(g.num_nodes()),
-                sampler,
-                batch_size=args.batch_size,
-                shuffle=True,
-                drop_last=False,
-                num_workers=args.num_workers)
-
-            for input_nodes, output_nodes, blocks in tqdm.tqdm(dataloader):
-                block = blocks[0].to(device)
-
-                h = x[input_nodes].to(device)
-                h = layer(block, h)
-                if l != len(self.layers) - 1:
-                    h = self.activation(h)
-                    h = self.dropout(h)
-
-                y[output_nodes] = h.cpu()
-
-            x = y
-        return y
+from model import SAGE, compute_acc_unsupervised as compute_acc
+from negative_sampler import NegativeSampler
 
 class CrossEntropyLoss(nn.Module):
     def forward(self, block_outputs, pos_graph, neg_graph):
@@ -120,29 +33,6 @@ class CrossEntropyLoss(nn.Module):
         loss = F.binary_cross_entropy_with_logits(score, label.float())
         return loss
 
-def compute_acc(emb, labels, train_nids, val_nids, test_nids):
-    """
-    Compute the accuracy of prediction given the labels.
-    """
-    emb = emb.cpu().numpy()
-    labels = labels.cpu().numpy()
-    train_nids = train_nids.cpu().numpy()
-    train_labels = labels[train_nids]
-    val_nids = val_nids.cpu().numpy()
-    val_labels = labels[val_nids]
-    test_nids = test_nids.cpu().numpy()
-    test_labels = labels[test_nids]
-
-    emb = (emb - emb.mean(0, keepdims=True)) / emb.std(0, keepdims=True)
-
-    lr = lm.LogisticRegression(multi_class='multinomial', max_iter=10000)
-    lr.fit(emb[train_nids], train_labels)
-
-    pred = lr.predict(emb)
-    f1_micro_eval = skm.f1_score(val_labels, pred[val_nids], average='micro')
-    f1_micro_test = skm.f1_score(test_labels, pred[test_nids], average='micro')
-    return f1_micro_eval, f1_micro_test
-
 def evaluate(model, g, nfeat, labels, train_nids, val_nids, test_nids, device):
     """
     Evaluate the model on the validation set specified by ``val_mask``.
@@ -156,10 +46,10 @@ def evaluate(model, g, nfeat, labels, train_nids, val_nids, test_nids, device):
     with th.no_grad():
         # single gpu
         if isinstance(model, SAGE):
-            pred = model.inference(g, nfeat, device)
+            pred = model.inference(g, nfeat, device, args.batch_size, args.num_workers)
         # multi gpu
         else:
-            pred = model.module.inference(g, nfeat, device)
+            pred = model.module.inference(g, nfeat, device, args.batch_size, args.num_workers)
     model.train()
     return compute_acc(pred, labels, train_nids, val_nids, test_nids)
 
@@ -203,7 +93,7 @@ def run(proc_id, n_gpus, args, devices, data):
         reverse_eids=th.cat([
             th.arange(n_edges // 2, n_edges),
             th.arange(0, n_edges // 2)]),
-        negative_sampler=NegativeSampler(g, args.num_negs),
+        negative_sampler=NegativeSampler(g, args.num_negs, args.neg_share),
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=False,
@@ -312,7 +202,7 @@ def main(args, devices):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("multi-gpu training")
     argparser.add_argument("--gpu", type=str, default='0',
-                           help="GPU, can be a list of gpus for multi-gpu trianing,"
+                           help="GPU, can be a list of gpus for multi-gpu training,"
                                 " e.g., 0,1,2,3; -1 for CPU")
     argparser.add_argument('--num-epochs', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=16)

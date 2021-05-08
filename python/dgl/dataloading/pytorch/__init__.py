@@ -15,6 +15,7 @@ class _ScalarDataBatcherIter:
         self.index = 0
         self.drop_last = drop_last
 
+    # Make this an iterator for PyTorch Lightning compatibility
     def __iter__(self):
         return self
 
@@ -66,6 +67,10 @@ class _ScalarDataBatcher(th.utils.data.IterableDataset):
             dataset = dataset[perm]
 
         return _ScalarDataBatcherIter(dataset, self.batch_size, self.drop_last)
+
+    def __len__(self):
+        return (self.dataset.shape[0] + (0 if self.drop_last else self.batch_size - 1)) // \
+            self.batch_size
 
 def _remove_kwargs_dist(kwargs):
     if 'num_workers' in kwargs:
@@ -217,6 +222,7 @@ class _NodeDataLoaderIter:
         self.node_dataloader = node_dataloader
         self.iter_ = iter(node_dataloader.dataloader)
 
+    # Make this an iterator for PyTorch Lightning compatibility
     def __iter__(self):
         return self
 
@@ -234,6 +240,7 @@ class _EdgeDataLoaderIter:
         self.edge_dataloader = edge_dataloader
         self.iter_ = iter(edge_dataloader.dataloader)
 
+    # Make this an iterator for PyTorch Lightning compatibility
     def __iter__(self):
         return self
 
