@@ -362,6 +362,8 @@ class RelGraphConv(nn.Module):
                          fn.sum(msg='msg', out='h'))
             # apply bias and activation
             node_repr = g.dstdata['h']
+            if len(node_repr.shape) == 1:
+                node_repr = node_repr[..., None]
             if self.layer_norm:
                 node_repr = self.layer_norm_weight(node_repr)
             if self.bias:
