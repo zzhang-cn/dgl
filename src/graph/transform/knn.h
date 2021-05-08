@@ -31,7 +31,7 @@ namespace transform {
 template <DLDeviceType XPU, typename FloatType, typename IdType>
 void KNN(const NDArray& data_points, const IdArray& data_offsets,
          const NDArray& query_points, const IdArray& query_offsets,
-         const int k, IdArray result, const std::string & algorithm);
+         const int k, IdArray result, const std::string& algorithm);
 
 }  // namespace transform
 }  // namespace dgl

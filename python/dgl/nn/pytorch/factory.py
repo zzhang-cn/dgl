@@ -67,7 +67,7 @@ class KNNGraph(nn.Module):
         self.k = k
 
     #pylint: disable=invalid-name
-    def forward(self, x, algorithm='topk'):
+    def forward(self, x, algorithm='bruteforce-blas'):
         """
 
         Forward computation.
@@ -81,11 +81,28 @@ class KNNGraph(nn.Module):
         algorithm : str, optional
             Algorithm used to compute the k-nearest neighbors.
 
-            * 'topk' will use topk algorithm (quick-select or sorting,
-            depending on backend implementation)
-            * 'kd-tree' will use kd-tree algorithm (cpu version)
+            * 'bruteforce-blas' will first compute the distance matrix
+              using BLAS matrix multiplication operation provided by
+              backend frameworks. Then use topk algorithm to get
+              k-nearest neighbors. This method has the largest memory
+              overhead.
 
-            (default: 'topk')
+            * 'bruteforce' will compute distances pair by pair and
+              directly select the k-nearest neighbors during distance
+              computation. This method is slower than 'bruteforce-blas'
+              but has less memory overhead since we do not need to store
+              all distances.
+
+            * 'bruteforce-sharemem' (CUDA only) is similar to 'bruteforce'
+              but use shared memory in CUDA devices for buffer. This method is
+              faster than 'bruteforce' when the dimension of input points
+              is not large. This method is only available on CUDA device.
+
+            * 'kd-tree' will use the kd-tree algorithm (CPU only).
+              This method is suitable for low-dimensional data (e.g. 3D
+              point clouds)
+
+            (default: 'bruteforce-blas')
 
         Returns
         -------
@@ -148,7 +165,7 @@ class SegmentedKNNGraph(nn.Module):
         self.k = k
 
     #pylint: disable=invalid-name
-    def forward(self, x, segs, algorithm='topk'):
+    def forward(self, x, segs, algorithm='bruteforce-blas'):
         r"""Forward computation.
 
         Parameters
@@ -163,11 +180,28 @@ class SegmentedKNNGraph(nn.Module):
         algorithm : str, optional
             Algorithm used to compute the k-nearest neighbors.
 
-            * 'topk' will use topk algorithm (quick-select or sorting,
-            depending on backend implementation)
-            * 'kd-tree' will use kd-tree algorithm (cpu version)
+            * 'bruteforce-blas' will first compute the distance matrix
+              using BLAS matrix multiplication operation provided by
+              backend frameworks. Then use topk algorithm to get
+              k-nearest neighbors. This method has the largest memory
+              overhead.
 
-            (default: 'topk')
+            * 'bruteforce' will compute distances pair by pair and
+              directly select the k-nearest neighbors during distance
+              computation. This method is slower than 'bruteforce-blas'
+              but has less memory overhead since we do not need to store
+              all distances.
+
+            * 'bruteforce-sharemem' (CUDA only) is similar to 'bruteforce'
+              but use shared memory in CUDA devices for buffer. This method is
+              faster than 'bruteforce' when the dimension of input points
+              is not large. This method is only available on CUDA device.
+
+            * 'kd-tree' will use the kd-tree algorithm (CPU only).
+              This method is suitable for low-dimensional data (e.g. 3D
+              point clouds)
+
+            (default: 'bruteforce-blas')
 
         Returns
         -------

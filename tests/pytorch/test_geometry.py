@@ -25,13 +25,45 @@ def test_fps():
     assert res.sum() > 0
 
 
-@pytest.mark.parametrize('algorithm', ['topk', 'kd-tree'])
-def test_knn(algorithm):
-    x = th.randn(8, 3)
+@pytest.mark.parametrize('algorithm', ['bruteforce-blas', 'bruteforce', 'kd-tree'])
+def test_knn_cpu(algorithm):
+    x = th.randn(8, 3).to(F.cpu())
     kg = dgl.nn.KNNGraph(3)
-    d = th.cdist(x, x)
+    d = th.cdist(x, x).to(F.cpu())
 
     def check_knn(g, x, start, end):
+        assert g.device == x.device
+        for v in range(start, end):
+            src, _ = g.in_edges(v)
+            src = set(src.numpy())
+            i = v - start
+            src_ans = set(th.topk(d[start:end, start:end][i], 3, largest=False)[1].numpy() + start)
+            assert src == src_ans
+
+    g = kg(x, algorithm)
+    check_knn(g, x, 0, 8)
+
+    g = kg(x.view(2, 4, 3), algorithm)
+    check_knn(g, x, 0, 4)
+    check_knn(g, x, 4, 8)
+
+    kg = dgl.nn.SegmentedKNNGraph(3)
+    g = kg(x, [3, 5], algorithm)
+    check_knn(g, x, 0, 3)
+    check_knn(g, x, 3, 8)
+
+
+@pytest.mark.parametrize('algorithm', ['bruteforce-blas', 'bruteforce', 'bruteforce-sharemem'])
+def test_knn_cuda(algorithm):
+    if not th.cuda.is_available():
+        return
+    x = th.randn(8, 3).to(F.cuda())
+    kg = dgl.nn.KNNGraph(3)
+    d = th.cdist(x, x).to(F.cpu())
+
+    def check_knn(g, x, start, end):
+        assert g.device == x.device
+        g = g.to(F.cpu())
         for v in range(start, end):
             src, _ = g.in_edges(v)
             src = set(src.numpy())

@@ -1,16 +1,16 @@
 /*!
  *  Copyright (c) 2021 by Contributors
- * \file graph/transform/kdtree_ndarray_adapter.h
+ * \file graph/transform/cpu/kdtree_ndarray_adapter.h
  * \brief NDArray adapter for nanoflann, without
  *        duplicating the storage
  */
-#ifndef DGL_GRAPH_TRANSFORM_KDTREE_NDARRAY_ADAPTER_H_
-#define DGL_GRAPH_TRANSFORM_KDTREE_NDARRAY_ADAPTER_H_
+#ifndef DGL_GRAPH_TRANSFORM_CPU_KDTREE_NDARRAY_ADAPTER_H_
+#define DGL_GRAPH_TRANSFORM_CPU_KDTREE_NDARRAY_ADAPTER_H_
 
 #include <dgl/array.h>
 #include <dmlc/logging.h>
 #include <nanoflann.hpp>
-#include "../../c_api_common.h"
+#include "../../../c_api_common.h"
 
 namespace dgl {
 namespace transform {
@@ -118,4 +118,4 @@ class KDTreeNDArrayAdapter {
 }  // namespace transform
 }  // namespace dgl
 
-#endif  // DGL_GRAPH_TRANSFORM_KDTREE_NDARRAY_ADAPTER_H_
+#endif  // DGL_GRAPH_TRANSFORM_CPU_KDTREE_NDARRAY_ADAPTER_H_
