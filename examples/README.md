@@ -4,6 +4,8 @@ The folder contains example implementations of selected research papers related 
 * For examples working with the latest master (or the latest [nightly build](https://www.dgl.ai/pages/start.html)), check out https://github.com/dmlc/dgl/tree/master/examples.
 * For examples working with a certain release, check out `https://github.com/dmlc/dgl/tree/<release_version>/examples` (E.g., https://github.com/dmlc/dgl/tree/0.5.x/examples)
 
+Please check out [`THIRDPARTY.md`](THIRDPARTY.md) for a list of third-party examples that uses DGL but maintained independently.
+
 ## Overview
 
 | Paper                                                        | node classification | link prediction / classification | graph property prediction | sampling           | OGB                |
